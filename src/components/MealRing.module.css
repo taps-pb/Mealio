@@ -1,0 +1,17 @@
+.stage { position: relative; height: 252px; width: 100%; overflow: hidden; }
+.ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; }
+.art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.center { position: relative; width: 54%; aspect-ratio: 1; border-radius: 50%; background: var(--color-surface); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.center strong { font-size: 32px; line-height: 1.1; letter-spacing: -.04em; }
+.center span { color: var(--color-muted); font-size: 10px; }
+.leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.dot { position: absolute; z-index: 2; width: 44px; height: 44px; transform: translate(-50%, -50%); border: 17px solid transparent; background-clip: padding-box !important; border-radius: 50%; cursor: pointer; }
+.dot[aria-pressed="true"] { border-width: 16px; }
+.dot:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.callout { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: 8px; background: var(--color-surface); color: var(--color-text); }
+.left { left: 0; text-align: right; }
+.right { right: 0; text-align: left; }
+.top { top: 0; }
+.bottom { bottom: 0; }
+.callout strong { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 11px; line-height: 1.2; }
+.callout small { color: var(--color-muted); font-size: 10px; white-space: nowrap; }
