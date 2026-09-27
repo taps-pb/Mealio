@@ -1,5 +1,5 @@
-import PreviewDashboard from "@/components/PreviewDashboard";
+import AuthGate from "@/components/AuthGate";
 
 export default function Home() {
-  return <PreviewDashboard />;
+  return <AuthGate />;
 }
