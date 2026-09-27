@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "fireworks_workers": {
+        "type": "local",
+        "command": ["python3", "tools/fireworks_workers.py"],
+        "cwd": "."
+      }
+    }
+  }
+}
