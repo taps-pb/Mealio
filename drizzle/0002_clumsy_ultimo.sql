@@ -1,0 +1,2 @@
+ALTER TABLE "admins" ALTER COLUMN "id" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "admins" ADD CONSTRAINT "admins_single_owner_id" CHECK ("admins"."id" = '00000000-0000-4000-8000-000000000001'::uuid);
