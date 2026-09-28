@@ -6,7 +6,7 @@
 .card p { margin: 0 0 24px; color: var(--color-muted); font-size: 14px; }
 .card form { display: grid; gap: 8px; }
 .card label { font-size: 13px; font-weight: 600; }
-.card input { min-width: 0; width: 100%; margin-bottom: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-page); color: var(--color-text); }
+.card input { min-width: 0; min-height: 44px; width: 100%; margin-bottom: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-page); color: var(--color-text); }
 .card button { min-height: 44px; margin-top: 8px; border: 0; border-radius: 10px; background: var(--color-arc-primary); color: #fff; font: inherit; font-weight: 700; }
 html[data-theme="dark"] .card button { color: #331e38; }
 .card button:disabled { opacity: .6; }

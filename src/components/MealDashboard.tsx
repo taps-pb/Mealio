@@ -16,13 +16,15 @@ type Draft = {
   id: string | null; key: string; description: string; eatenAt: string; originalEatenAt: string | null; timeChanged: boolean;
   kcal: string; protein: string; carbs: string; items: Snapshot[]; provenance: Meal["provenance"];
 };
-type View = "today" | "history" | "entry" | "review";
+type View = "today" | "history" | "entry" | "review" | "details";
 const pad = (number: number) => String(number).padStart(2, "0");
 const localInput = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 const round2 = (number: number) => Math.round(number * 100) / 100;
 
 export default function MealDashboard({ username, timezone, onLogout }: { username: string; timezone: string; onLogout: () => void }) {
   const [view, setView] = useState<View>("today");
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailsFrom, setDetailsFrom] = useState<"today" | "history">("today");
   const [groups, setGroups] = useState<DayGroup[]>([]);
   const [todayKey, setTodayKey] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -158,7 +160,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
       const response = await fetch(`/api/meals/${id}`, { method: "DELETE", credentials: "same-origin" });
       if (response.status === 401) { onLogout(); return; }
       if (!response.ok) { setError("Delete failed. Please try again."); return; }
-      setDeleteId(null); await load();
+      setDeleteId(null); if (view === "details") setView(detailsFrom); await load();
     } catch { setError("Delete failed. Please try again."); }
     finally { setBusy(false); }
   }
@@ -173,9 +175,12 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     finally { setBusy(false); }
   }
 
+  const detailMeal = groups.flatMap((group) => group.meals).find((meal) => meal.id === detailId);
   const renderMeal = (meal: Meal) => <article key={meal.id} className={styles.meal}>
-    <div className={styles.mealCopy}><strong>{meal.description}</strong><small>{new Date(meal.eatenAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: timezone })} · {meal.kcal} kcal · P {meal.protein}g · C {meal.carbs}g</small>{meal.itemSnapshots.some((item) => item.uncertainty) && <small>Contains uncertain items</small>}</div>
-    <div className={styles.mealActions}><button type="button" onClick={() => startEdit(meal)}>Edit</button><button type="button" onClick={() => setDeleteId(meal.id)}>Delete</button></div>
+    <span className={styles.mealIcon} aria-hidden="true">✦</span>
+    <div className={styles.mealCopy}><strong>{meal.description}</strong><small>{new Date(meal.eatenAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: timezone })} · P {meal.protein}g · C {meal.carbs}g</small>{meal.itemSnapshots.some((item) => item.uncertainty) && <small>Contains uncertain items</small>}</div>
+    <div className={styles.mealKcal}>{meal.kcal}<small>kcal</small></div>
+    <div className={styles.mealActions}><button type="button" onClick={() => { setDetailId(meal.id); setDetailsFrom(view === "history" ? "history" : "today"); setDeleteId(null); setView("details"); }}>Details</button><button type="button" onClick={() => startEdit(meal)}>Edit</button><button type="button" onClick={() => setDeleteId(meal.id)}>Delete</button></div>
     {deleteId === meal.id && <div className={styles.confirm}><span>Delete {meal.description}?</span><button type="button" disabled={busy} onClick={() => void remove(meal.id)}>Yes, delete</button><button type="button" onClick={() => setDeleteId(null)}>Cancel</button></div>}
   </article>;
 
@@ -184,10 +189,12 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {!loaded && <p role="status">Loading meals…</p>}
 
-    {view === "today" && loaded && <><section className={styles.hero}><div className={styles.heading}><div><span className={styles.eyebrow}>CALORIES BY MEAL</span><h2>Today</h2></div><span>{todayKey} · {timezone}</span></div><MealRing meals={(today?.meals ?? []).map((meal) => ({ id: meal.id, name: meal.description, kcal: meal.kcal }))} /><div className={styles.macros}><div><small>Protein</small><strong>{today?.totalProtein ?? 0} g</strong></div><div><small>Carbs</small><strong>{today?.totalCarbs ?? 0} g</strong></div></div></section><section className={styles.list}><div className={styles.heading}><h2>Meals today</h2><span>{today?.meals.length ?? 0} logged</span></div>{today?.meals.map(renderMeal) ?? <p>No meals yet.</p>}</section></>}
-    {view === "history" && loaded && <section className={styles.list}><div className={styles.heading}><h2>History</h2><span>{timezone}</span></div>{groups.length ? groups.map((group) => <section className={styles.day} key={group.day}><div className={styles.heading}><h3>{group.day}</h3><span>{group.totalKcal} kcal · P {group.totalProtein}g · C {group.totalCarbs}g</span></div>{group.meals.map(renderMeal)}</section>) : <p>No meals yet.</p>}</section>}
+    {view === "today" && loaded && <><section className={styles.hero}><div className={styles.heading}><div><span className={styles.eyebrow}>CALORIES BY MEAL</span><h2>Today</h2></div><span>{todayKey} · {timezone}</span></div><MealRing meals={(today?.meals ?? []).map((meal) => ({ id: meal.id, name: meal.description, kcal: meal.kcal }))} /><div className={styles.macros}><div><span className={styles.macroIcon} aria-hidden="true">P</span><span><small>Protein</small><strong>{today?.totalProtein ?? 0} g</strong></span></div><div><span className={styles.macroIcon} aria-hidden="true">C</span><span><small>Carbs</small><strong>{today?.totalCarbs ?? 0} g</strong></span></div></div></section><section className={styles.list}><div className={styles.heading}><h2>Meals today</h2><span>{today?.meals.length ?? 0} logged</span></div>{today?.meals.length ? today.meals.map(renderMeal) : <p className={styles.empty}>No meals yet. Add one to start your day.</p>}</section></>}
+    {view === "history" && loaded && <section className={styles.list}><span className={styles.eyebrow}>YOUR MEAL JOURNAL</span><div className={styles.heading}><h2>History</h2><span>Days grouped in {timezone}</span></div>{groups.length ? groups.map((group) => <section className={styles.day} key={group.day}><div className={styles.dayHeader}><h3>{group.day}</h3><span>{group.totalKcal} kcal · P {group.totalProtein}g · C {group.totalCarbs}g</span></div>{group.meals.map(renderMeal)}</section>) : <p className={styles.empty}>No meals yet.</p>}</section>}
 
-    {(view === "entry" || view === "review") && draft && <section className={styles.editor}><span className={styles.eyebrow}>{draft.id ? "EDIT MEAL" : "NEW MEAL"}</span><h2>{view === "review" ? "Review before saving" : "What did you eat?"}</h2><p>Nutrition candidates may be uncertain. Your corrections are saved only when you confirm.</p>
+    {view === "details" && loaded && <section className={styles.editor}><span className={styles.eyebrow}>SAVED MEAL</span><h2>Meal details</h2>{detailMeal ? <><p>{new Date(detailMeal.eatenAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: timezone })} · {timezone}</p><h3>{detailMeal.description}</h3><div className={styles.macros}><div><small>Calories</small><strong>{detailMeal.kcal} kcal</strong></div><div><small>Protein</small><strong>{detailMeal.protein} g</strong></div><div><small>Carbs</small><strong>{detailMeal.carbs} g</strong></div></div><p>Saved nutrition snapshot · {detailMeal.provenance}. Re-estimating is always an explicit action in Edit.</p>{detailMeal.itemSnapshots.map((item, index) => <div className={styles.item} key={index}><strong>{item.name}</strong><span className={styles.sourceBadge}>{item.source === "indb" ? "INDB candidate" : item.source === "usda" ? "USDA candidate" : item.source}</span>{item.sourceId && <p>Reference: {item.sourceId}</p>}<p>{item.quantity ?? "—"} {item.unit ?? ""}{item.grams !== null ? ` · ${item.grams} g` : ""} · {item.kcal ?? "—"} kcal · P {item.protein ?? "—"} g · C {item.carbs ?? "—"} g</p>{item.uncertainty && <p className={styles.uncertain}>Uncertain: {item.uncertainty}</p>}</div>)}<div className={styles.actions}><button type="button" className={styles.secondary} onClick={() => startEdit(detailMeal)}>Edit meal</button><button type="button" className={styles.secondary} onClick={() => setDeleteId(detailMeal.id)}>Delete…</button></div>{deleteId === detailMeal.id && <div className={styles.confirm}><span>Delete {detailMeal.description}?</span><button type="button" disabled={busy} onClick={() => void remove(detailMeal.id)}>Yes, delete</button><button type="button" onClick={() => setDeleteId(null)}>Cancel</button></div>}</> : <p role="status">Meal not found. Return to history.</p>}<button type="button" className={styles.secondary} onClick={() => changeView(detailsFrom)}>Back to {detailsFrom === "today" ? "Today" : "History"}</button></section>}
+
+    {(view === "entry" || view === "review") && draft && <section className={styles.editor}><span className={styles.eyebrow}>{draft.id ? "EDIT MEAL" : "NEW MEAL"}</span><h2>{view === "review" ? "Review before saving" : "What did you eat?"}</h2><p>Describe foods and portions, then review estimates or enter nutrition manually. Candidates may be uncertain; your corrections are saved only when you confirm.</p>
       {view === "entry" && <><label>Meal description<textarea rows={3} maxLength={500} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><button type="button" className={styles.secondary} disabled={busy || !draft.description.trim()} onClick={() => void estimate()}>Estimate from description (optional)</button></>}
       {!!draft.items.length && <div className={styles.items}><h3>Food and portion assumptions</h3>{draft.items.map((item, index) => <fieldset key={index} className={styles.item}><legend>Item {index + 1} · {item.source === "indb" ? <><span className={styles.sourceBadge}>INDB candidate</span> {item.sourceId}</> : item.source === "usda" ? "USDA candidate" : item.source}</legend>{item.uncertainty && <p className={styles.uncertain}>Uncertain: {item.uncertainty}</p>}
         <label>Food name<input value={item.name} onChange={(event) => updateItem(index, { name: event.target.value })} /></label><div className={styles.fields}><label>Quantity<input type="number" min="0.01" step="any" value={item.quantity ?? ""} onChange={(event) => updateItem(index, { quantity: event.target.value ? Number(event.target.value) : null })} /></label><label>Unit<input value={item.unit ?? ""} onChange={(event) => updateItem(index, { unit: event.target.value || null })} /></label><label>Grams<input type="number" min="0.01" step="any" value={item.grams ?? ""} onChange={(event) => updateItem(index, { grams: event.target.value ? Number(event.target.value) : null })} /></label></div>
