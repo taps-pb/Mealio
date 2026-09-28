@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lookupUsdaFood } from "./usda";
 
 const item = { name: "chicken breast", quantity: 1, unit: "portion", grams: 150, uncertainty: "Estimated weight" };
@@ -6,13 +9,19 @@ const testApiKey = ["test", "placeholder"].join("-");
 const food = { fdcId: 123, description: "Chicken breast", foodNutrients: [
   { nutrientId: 1008, value: 165 }, { nutrientId: 1003, value: 31 }, { nutrientId: 1005, value: 0 },
 ] };
+const egg = { fdcId: 171287, description: "Egg, whole, raw, fresh", foodNutrients: [
+  { nutrientId: 1008, value: 143 }, { nutrientId: 1003, value: 12.6 }, { nutrientId: 1005, value: .72 },
+] };
+const mango = { fdcId: 169910, description: "Mangos, raw", foodNutrients: [
+  { nutrientId: 1008, value: 60 }, { nutrientId: 1003, value: .82 }, { nutrientId: 1005, value: 15 },
+] };
 const response = (foods: unknown[]) => new Response(JSON.stringify({ foods }), { status: 200 });
 
 describe("USDA review candidates", () => {
   it("scales per-100g nutrients and retains portion uncertainty", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response([food]));
     const result = await lookupUsdaFood(item, { apiKey: testApiKey, fetchImpl });
-    expect(result).toEqual({ status: "candidate", sourceId: "123", description: "Chicken breast", nutrients: { kcal: 247.5, protein: 46.5, carbs: 0 }, uncertainty: "Estimated weight" });
+    expect(result).toEqual({ status: "candidate", sourceId: "123", description: "Chicken breast", grams: 150, nutrients: { kcal: 247.5, protein: 46.5, carbs: 0 }, uncertainty: "Estimated weight" });
     expect(JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string).query).toBe("chicken breast");
   });
 
@@ -29,5 +38,115 @@ describe("USDA review candidates", () => {
     const result = await lookupUsdaFood(item, { apiKey: testApiKey, fetchImpl });
     expect(result.status).toBe("unavailable");
     expect(JSON.stringify(result)).not.toContain(testApiKey);
+  });
+
+  it("uses USDA's large whole-egg portion as a labeled assumption for one egg", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(response([egg]))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ description: egg.description, foodPortions: [
+        { amount: 1, gramWeight: 243, modifier: "cup" },
+        { amount: 1, gramWeight: 50, modifier: "large" },
+      ] })));
+    const result = await lookupUsdaFood({ name: "egg", quantity: 1, unit: null, grams: null, uncertainty: null }, { apiKey: testApiKey, fetchImpl });
+    expect(result.status).toBe("candidate");
+    if (result.status === "candidate") {
+      expect(result.grams).toBe(50);
+      expect(result.nutrients).toEqual({ kcal: 71.5, protein: 6.3, carbs: .36 });
+      expect(result.uncertainty).toContain("Assumed 1 × 50 g USDA large portion");
+      expect(result.uncertainty).toContain("confirm size and preparation");
+    }
+    expect(JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string).query).toBe("egg, whole, raw");
+    expect(fetchImpl.mock.calls[1][0]).toContain("/food/171287");
+  });
+
+  it("scales an edible whole-mango portion and preserves USDA provenance", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(response([mango]))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ description: mango.description, foodPortions: [
+        { amount: 1, gramWeight: 336, modifier: "fruit without refuse" },
+      ] })));
+    const result = await lookupUsdaFood({ name: "mango", quantity: 1, unit: null, grams: null, uncertainty: null }, { apiKey: testApiKey, fetchImpl });
+    expect(result.status).toBe("candidate");
+    if (result.status === "candidate") {
+      expect(result.sourceId).toBe("169910");
+      expect(result.grams).toBe(336);
+      expect(result.nutrients).toEqual({ kcal: 201.6, protein: 2.76, carbs: 50.4 });
+      expect(result.uncertainty).toContain("Assumed 1 × 336 g USDA fruit without refuse portion");
+    }
+  });
+
+  it("never substitutes egg white, a missing portion, or an unknown count food", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(response([{ ...egg, description: "Egg white, raw" }]))
+      .mockResolvedValueOnce(response([egg]))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ description: egg.description, foodPortions: [] })));
+    const count = { name: "egg", quantity: 1, unit: "each", grams: null, uncertainty: null };
+    expect((await lookupUsdaFood(count, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
+    expect((await lookupUsdaFood(count, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
+    expect((await lookupUsdaFood({ ...count, name: "unknown fruit" }, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("private USDA key loading", () => {
+  let directory: string;
+  let keyFile: string;
+  let previousKey: string | undefined;
+  let previousFile: string | undefined;
+  const fetchImpl = vi.fn().mockImplementation(async () => response([]));
+
+  beforeEach(async () => {
+    previousKey = process.env.USDA_API_KEY;
+    previousFile = process.env.USDA_KEY_FILE;
+    delete process.env.USDA_API_KEY;
+    directory = await mkdtemp(join(tmpdir(), "mealio-usda-test-"));
+    keyFile = join(directory, "usda_api.txt");
+    process.env.USDA_KEY_FILE = keyFile;
+    fetchImpl.mockClear();
+  });
+
+  afterEach(async () => {
+    if (previousKey === undefined) delete process.env.USDA_API_KEY;
+    else process.env.USDA_API_KEY = previousKey;
+    if (previousFile === undefined) delete process.env.USDA_KEY_FILE;
+    else process.env.USDA_KEY_FILE = previousFile;
+    await rm(directory, { recursive: true });
+  });
+
+  it("reads a raw key at lookup time and never returns it", async () => {
+    await writeFile(keyFile, "raw-test-key\n");
+    const result = await lookupUsdaFood(item, { fetchImpl });
+    expect(result.status).toBe("unmatched");
+    expect(fetchImpl.mock.calls[0][0]).toContain("raw-test-key");
+    expect(JSON.stringify(result)).not.toContain("raw-test-key");
+  });
+
+  it("accepts a quoted USDA_API_KEY assignment", async () => {
+    await writeFile(keyFile, `${["USDA_API", "KEY"].join("_")}="file-test-key"\n`);
+    expect((await lookupUsdaFood(item, { fetchImpl })).status).toBe("unmatched");
+    expect(fetchImpl.mock.calls[0][0]).toContain("file-test-key");
+  });
+
+  it("uses the deployment environment first, and respects an explicit empty override", async () => {
+    await writeFile(keyFile, "file-test-key\n");
+    process.env.USDA_API_KEY = ["env", "test", "key"].join("-");
+    expect((await lookupUsdaFood(item, { fetchImpl })).status).toBe("unmatched");
+    expect(fetchImpl.mock.calls[0][0]).toContain("env-test-key");
+    expect((await lookupUsdaFood(item, { fetchImpl, apiKey: "" })).status).toBe("unavailable");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed for missing, blank or malformed files without leaking details", async () => {
+    expect((await lookupUsdaFood(item, { fetchImpl })).status).toBe("unavailable");
+    for (const contents of [" \n", "one\ntwo\n", "OTHER_KEY=wrong\n"]) {
+      await writeFile(keyFile, contents);
+      const result = await lookupUsdaFood(item, { fetchImpl });
+      expect(result.status).toBe("unavailable");
+      expect(JSON.stringify(result)).not.toContain(keyFile);
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("does not read a key file when the portion weight is unknown", async () => {
+    const result = await lookupUsdaFood({ ...item, grams: null }, { fetchImpl });
+    expect(result.status).toBe("unmatched");
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

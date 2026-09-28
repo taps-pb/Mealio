@@ -23,7 +23,7 @@ async function snapshot(item: InterpretedItem): Promise<MealItemSnapshot> {
     uncertainty: [item.uncertainty, found.uncertainty].filter(Boolean).join("; ").slice(0, 500),
   };
   return {
-    ...base, ...found.nutrients, source: "usda", sourceId: found.sourceId,
+    ...base, grams: found.grams, ...found.nutrients, source: "usda", sourceId: found.sourceId,
     uncertainty: found.uncertainty?.slice(0, 500) ?? null,
   };
 }
