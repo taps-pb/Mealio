@@ -5,6 +5,7 @@ import { findSession } from "@/server/auth/session";
 import { acceptsSameOriginMutation } from "@/server/auth/request-origin";
 import type { MealItemSnapshot } from "@/server/db/schema";
 import { interpretMeal, type InterpretedItem } from "@/server/nutrition/interpret";
+import { lookupIndbFood } from "@/server/nutrition/indb";
 import { lookupUsdaFood } from "@/server/nutrition/usda";
 
 export const runtime = "nodejs";
@@ -17,6 +18,11 @@ const error = (status: number, message: string, allowManual = false) =>
 
 async function snapshot(item: InterpretedItem): Promise<MealItemSnapshot> {
   const base = { name: item.name, quantity: item.quantity, unit: item.unit, grams: item.grams };
+  const indb = await lookupIndbFood(item);
+  if (indb.status === "candidate") return {
+    ...base, grams: indb.grams, ...indb.nutrients, source: "indb", sourceId: indb.sourceId,
+    uncertainty: indb.uncertainty.slice(0, 500),
+  };
   const found = await lookupUsdaFood(item);
   if (found.status !== "candidate") return {
     ...base, kcal: null, protein: null, carbs: null, source: "unmatched", sourceId: null,
