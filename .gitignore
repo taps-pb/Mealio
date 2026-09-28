@@ -16,6 +16,7 @@ playwright-report/
 *.pfx
 *.sqlite
 .secrets/
+dataset/
 worktree/
 __pycache__/
 .DS_Store

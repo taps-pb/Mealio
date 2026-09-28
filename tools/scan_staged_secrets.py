@@ -26,7 +26,9 @@ def main() -> int:
         findings = []
         for encoded in filter(None, names):
             name = encoded.decode("utf-8", "surrogateescape")
-            if (SENSITIVE.search(name) and name != ".env.example") or PurePosixPath(name).name == "fw_api.txt":
+            if ((SENSITIVE.search(name) and name != ".env.example")
+                    or PurePosixPath(name).name == "fw_api.txt"
+                    or name.startswith("dataset/")):
                 findings.append(f"{name}: sensitive filename")
                 continue
             content = git("show", ":" + name)
