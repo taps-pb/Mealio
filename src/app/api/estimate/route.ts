@@ -26,7 +26,8 @@ async function snapshot(item: InterpretedItem): Promise<MealItemSnapshot> {
   const found = await lookupUsdaFood(item);
   if (found.status !== "candidate") return {
     ...base, kcal: null, protein: null, carbs: null, source: "unmatched", sourceId: null,
-    uncertainty: [item.uncertainty, found.uncertainty].filter(Boolean).join("; ").slice(0, 500),
+    uncertainty: [indb.reason === "portion_missing" ? indb.uncertainty : null,
+      item.uncertainty, found.uncertainty].filter(Boolean).join("; ").slice(0, 500),
   };
   return {
     ...base, grams: found.grams, ...found.nutrients, source: "usda", sourceId: found.sourceId,

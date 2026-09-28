@@ -11,10 +11,10 @@ export type IndbRecord = {
 
 type Candidate = { status: "candidate"; sourceId: string; grams: number | null;
   nutrients: { kcal: number; protein: number; carbs: number }; uncertainty: string };
-type Unmatched = { status: "unmatched"; uncertainty: string };
+type Unmatched = { status: "unmatched"; reason: "no_match" | "portion_missing"; uncertainty: string };
 export type IndbResult = Candidate | Unmatched;
 
-const unmatched = (): Unmatched => ({ status: "unmatched", uncertainty: "No verified INDB dish and portion match." });
+const unmatched = (): Unmatched => ({ status: "unmatched", reason: "no_match", uncertainty: "No verified INDB dish and portion match." });
 const round2 = (value: number) => Math.round(value * 100) / 100;
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 const singular = (value: string) => value.endsWith("s") && !value.endsWith("ss") ? value.slice(0, -1) : value;
@@ -64,16 +64,23 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
   }
   const unit = item.unit ? singular(normalize(item.unit)) : "";
   const servingUnit = record.servingUnit ? singular(normalize(record.servingUnit)) : "";
-  const namedPiece = (unit === "piece" || unit === "each") && dishNames(record.name).includes(servingUnit);
+  const namedServing = dishNames(record.name).includes(servingUnit);
+  const namedPiece = (unit === "piece" || unit === "each") && namedServing;
+  const usableUnit = unit === servingUnit || dishNames(record.name).includes(unit) || namedPiece || (!unit && namedServing);
+  const impliedGrams = record.servingKcal !== null && record.kcalPer100g > 0
+    ? 100 * record.servingKcal / record.kcalPer100g : 0;
+  const viableServing = record.servingKcal !== null && record.servingProtein !== null &&
+    record.servingCarbs !== null && impliedGrams >= 5 && impliedGrams <= 500;
   if (item.quantity === null || !Number.isFinite(item.quantity) || item.quantity <= 0 || item.quantity > 100 ||
-      !unit || !servingUnit || (unit !== servingUnit && !dishNames(record.name).includes(unit) && !namedPiece) ||
-      record.servingKcal === null || record.servingProtein === null || record.servingCarbs === null ||
-      record.kcalPer100g <= 0) return unmatched();
+      !servingUnit || !usableUnit) {
+    const example = viableServing && servingUnit ? ` or an explicit count (e.g. "1 ${record.servingUnit} ${name}")` : "";
+    return { status: "unmatched", reason: "portion_missing",
+      uncertainty: `Enter a measured weight in grams${example}, then estimate again; no INDB portion was assumed` };
+  }
 
   // A reference serving may have an unreliable portion size. Reject obvious
   // outliers without claiming that the ratio is a measured weight.
-  const impliedGrams = 100 * record.servingKcal / record.kcalPer100g;
-  if (impliedGrams < 5 || impliedGrams > 500) return unmatched();
+  if (!viableServing || record.servingKcal === null || record.servingProtein === null || record.servingCarbs === null) return unmatched();
   return { status: "candidate", sourceId: record.sourceId, grams: null,
     nutrients: { kcal: round2(record.servingKcal * item.quantity),
       protein: round2(record.servingProtein * item.quantity),

@@ -16,6 +16,9 @@ const poha: IndbRecord = { sourceId: "TEST002", name: "Poha", kcalPer100g: 120,
 const idli: IndbRecord = { sourceId: "TEST003", name: "Idli", kcalPer100g: 140,
   proteinPer100g: 6, carbsPer100g: 25, servingUnit: "idli",
   servingKcal: 70, servingProtein: 3, servingCarbs: 12.5 };
+const paneerCurry: IndbRecord = { sourceId: "TEST004", name: "Paneer curry", kcalPer100g: 160,
+  proteinPer100g: 7, carbsPer100g: 12, servingUnit: "bowl",
+  servingKcal: 240, servingProtein: 10.5, servingCarbs: 18 };
 const item = (name: string, quantity: number | null, unit: string | null, grams: number | null): InterpretedItem =>
   ({ name, quantity, unit, grams, uncertainty: null });
 
@@ -30,6 +33,9 @@ describe("private INDB lookup", () => {
     expect(matchIndbFood(item("roti", 2, "piece", null), [roti])).toMatchObject({
       status: "candidate", nutrients: { kcal: 200, protein: 6.4, carbs: 35.2 },
     });
+    expect(matchIndbFood(item("roti", 3, null, null), [roti])).toMatchObject({
+      status: "candidate", nutrients: { kcal: 300, protein: 9.6, carbs: 52.8 },
+    });
     expect(matchIndbFood(item("poha", 1, "bowl", null), [poha])).toMatchObject({
       status: "candidate", nutrients: { kcal: 180, protein: 6, carbs: 30 },
     });
@@ -37,16 +43,28 @@ describe("private INDB lookup", () => {
       status: "candidate", nutrients: { kcal: 140, protein: 6, carbs: 25 },
     });
     expect(matchIndbFood(item("idli", 2, "each", null), [idli]).status).toBe("candidate");
+    expect(matchIndbFood(item("idli", 2, null, null), [idli]).status).toBe("candidate");
+    expect(matchIndbFood(item("paneer curry", 1, "bowl", null), [paneerCurry]).status).toBe("candidate");
   });
 
   it("rejects ambiguous, unknown, mismatched, and implausible portions", () => {
     expect(matchIndbFood(item("roti", 1, "plate", null), [roti]).status).toBe("unmatched");
     expect(matchIndbFood(item("poha", 1, "piece", null), [poha]).status).toBe("unmatched");
-    expect(matchIndbFood(item("roti", 1, null, null), [roti]).status).toBe("unmatched");
-    expect(matchIndbFood(item("roti", 1, "roti", null), [roti, { ...roti, sourceId: "TEST004" }]).status).toBe("unmatched");
+    expect(matchIndbFood(item("poha", 1, null, null), [poha])).toMatchObject({ status: "unmatched", reason: "portion_missing" });
+    expect(matchIndbFood(item("roti", null, null, null), [roti])).toMatchObject({ status: "unmatched", reason: "portion_missing" });
+    expect(matchIndbFood(item("roti", 1, "roti", null), [roti, { ...roti, sourceId: "TEST005" }])).toMatchObject({ status: "unmatched", reason: "no_match" });
+    expect(matchIndbFood(item("paneer curry", null, null, null), [paneerCurry])).toMatchObject({
+      status: "unmatched", reason: "portion_missing",
+      uncertainty: expect.stringContaining("1 bowl paneer curry"),
+    });
+    expect(matchIndbFood(item("paneer curry", 1, null, null), [paneerCurry])).toMatchObject({ status: "unmatched", reason: "portion_missing" });
+    expect(matchIndbFood(item("unknown dish", null, null, null), [paneerCurry])).toMatchObject({ status: "unmatched", reason: "no_match" });
     expect(matchIndbFood(item("roti roll", 1, "piece", null), [roti]).status).toBe("unmatched");
     expect(matchIndbFood(item("roti", 1, "roti", null), [{ ...roti, servingKcal: 2000 }]).status).toBe("unmatched");
     expect(matchIndbFood(item("poha", 1, "bowl", null), [{ ...poha, servingKcal: null }]).status).toBe("unmatched");
+    const unsafeServing = matchIndbFood(item("poha", null, null, null), [{ ...poha, servingKcal: 2000 }]);
+    expect(unsafeServing).toMatchObject({ status: "unmatched", reason: "portion_missing" });
+    expect(unsafeServing.uncertainty).not.toContain("1 bowl");
     expect(matchIndbFood(item("roti", null, null, .001), [roti]).status).toBe("unmatched");
   });
 
