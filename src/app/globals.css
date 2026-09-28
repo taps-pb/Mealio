@@ -8,6 +8,8 @@
   --color-muted: #5c7180;
   --color-arc-primary: #007ea7;
   --color-arc-secondary: #72b4cc;
+  --color-arc-tertiary: #c87352;
+  --color-arc-quaternary: #805ca7;
   --color-ring-track: #e9f7fa;
   --color-ring-guide: #a6d7e5;
   --color-macro: #f0f9fb;
@@ -24,6 +26,8 @@ html[data-theme="dark"] {
   --color-muted: #d4c5d7;
   --color-arc-primary: #64f58d;
   --color-arc-secondary: #f7a072;
+  --color-arc-tertiary: #8ab7ff;
+  --color-arc-quaternary: #d5a5e9;
   --color-ring-track: #604767;
   --color-ring-guide: #765c7d;
   --color-macro: #513757;
