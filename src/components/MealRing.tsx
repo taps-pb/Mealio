@@ -2,11 +2,18 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import styles from "./MealRing.module.css";
+import { ringColorIndices } from "./ringColors";
+import { spreadRingMarkerAngles } from "./ringMarkerAngles";
 
 export type RingMeal = { id: string; name: string; kcal: number };
 const CIRC = 2 * Math.PI * 88;
 const HEIGHT = 252;
-const colors = ["var(--color-arc-primary)", "var(--color-arc-secondary)"];
+const colors = [
+  "var(--color-arc-primary)",
+  "var(--color-arc-secondary)",
+  "var(--color-arc-tertiary)",
+  "var(--color-arc-quaternary)",
+];
 
 function pointOnCurve(t: number, start: { x: number; y: number }, end: { x: number; y: number }) {
   return {
@@ -56,22 +63,27 @@ export default function MealRing({ meals }: { meals: RingMeal[] }) {
 
   const positive = meals.filter((meal) => Number.isFinite(meal.kcal) && meal.kcal > 0);
   const total = positive.reduce((sum, meal) => sum + meal.kcal, 0);
+  const colorSlots = ringColorIndices(positive.length);
   const parts = positive.map((meal, index) => {
     const start = positive.slice(0, index).reduce((distance, previous) => distance + previous.kcal / total * CIRC, 0);
     const share = meal.kcal / total * CIRC;
     const gap = Math.min(24, share * .28);
     const angle = (start + share / 2) / CIRC * 2 * Math.PI;
-    const part = { meal, index, angle, dash: Math.max(1, share - gap), offset: -(start + gap / 2) };
+    const part = { meal, color: colors[colorSlots[index]], angle, dash: Math.max(1, share - gap), offset: -(start + gap / 2) };
     return part;
   });
   const selected = parts.find((part) => part.meal.id === selectedId) ?? parts[0];
   const ringSize = Math.min(220, width * .72);
   const scale = ringSize / 220;
   const cx = width / 2, cy = HEIGHT / 2;
-  const dots = parts.map((part) => ({
+  const markerAngles = spreadRingMarkerAngles(parts.map((part) => part.angle), 67 * scale);
+  const dots = parts.map((part, index) => ({
     ...part,
-    x: cx + Math.sin(part.angle) * 67 * scale,
-    y: cy - Math.cos(part.angle) * 67 * scale,
+    x: cx + Math.sin(markerAngles[index]) * 67 * scale,
+    y: cy - Math.cos(markerAngles[index]) * 67 * scale,
+    displaced: Math.abs(markerAngles[index] - part.angle) > .01,
+    arcX: cx + Math.sin(part.angle) * 78 * scale,
+    arcY: cy - Math.cos(part.angle) * 78 * scale,
   }));
   const active = dots.find((dot) => dot.meal.id === selected?.meal.id);
   const right = active ? active.x >= cx : true;
@@ -83,19 +95,20 @@ export default function MealRing({ meals }: { meals: RingMeal[] }) {
     y: top ? labelHeight / 2 : HEIGHT - labelHeight / 2,
   } : null;
   const from = active ? { x: active.x, y: active.y } : null;
-  const color = active ? colors[active.index % colors.length] : colors[0];
+  const color = active ? active.color : colors[0];
 
   return <div className={styles.stage} ref={stage} aria-label={`Calories by meal, ${total} kcal total`}>
     <div className={styles.ring} style={{ width: ringSize, height: ringSize }}>
       <svg className={styles.art} viewBox="0 0 220 220" aria-hidden="true">
         <circle cx="110" cy="110" r="105" fill="none" stroke="var(--color-ring-guide)" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
         <circle cx="110" cy="110" r="88" fill="none" stroke="var(--color-ring-track)" strokeWidth="16" />
-        <g transform="rotate(-90 110 110)">{parts.map((part) => <circle key={part.meal.id} cx="110" cy="110" r="88" fill="none" stroke={colors[part.index % colors.length]} strokeWidth="16" strokeLinecap={part.dash > 24 ? "round" : "butt"} strokeDasharray={`${part.dash} ${CIRC}`} strokeDashoffset={part.offset} />)}</g>
+        <g transform="rotate(-90 110 110)">{parts.map((part) => <circle key={part.meal.id} cx="110" cy="110" r="88" fill="none" stroke={part.color} strokeWidth="16" strokeLinecap={part.dash > 24 ? "round" : "butt"} strokeDasharray={`${part.dash} ${CIRC}`} strokeDashoffset={part.offset} />)}</g>
       </svg>
       <div className={styles.center}><strong>{total}</strong><span>kcal eaten</span></div>
     </div>
     {width > 0 && active && from && end && <svg className={styles.leader} viewBox={`0 0 ${width} ${HEIGHT}`} aria-hidden="true">
       <defs><mask id={maskId} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse"><rect width={width} height={HEIGHT} fill="white" /><circle cx={cx} cy={cy} r={88 * scale} fill="none" stroke="black" strokeWidth={26 * scale} /></mask></defs>
+      {dots.filter((dot) => dot.displaced).map((dot) => <path key={dot.meal.id} d={`M ${dot.x} ${dot.y} L ${dot.arcX} ${dot.arcY}`} fill="none" stroke={dot.color} strokeWidth="1.5" opacity=".8" />)}
       <path d={`M ${from.x} ${from.y} Q ${end.x} ${from.y} ${end.x} ${end.y}`} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" mask={`url(#${maskId})`} />
       {[75, 101].map((r) => {
         const path = capAt(r * scale, cx, cy, from, end);
@@ -103,7 +116,7 @@ export default function MealRing({ meals }: { meals: RingMeal[] }) {
       })}
       <path d={right ? `M ${end.x - 5} ${end.y - 3} L ${end.x} ${end.y} L ${end.x - 5} ${end.y + 3}` : `M ${end.x + 5} ${end.y - 3} L ${end.x} ${end.y} L ${end.x + 5} ${end.y + 3}`} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>}
-    {dots.map((dot) => <button key={dot.meal.id} type="button" className={styles.dot} style={{ left: dot.x, top: dot.y, background: colors[dot.index % colors.length] }} aria-label={`Show ${dot.meal.name}, ${dot.meal.kcal} calories`} aria-pressed={dot.meal.id === selected?.meal.id} onClick={() => setSelectedId(dot.meal.id)} />)}
+    {dots.map((dot) => <button key={dot.meal.id} type="button" className={styles.dot} style={{ left: dot.x, top: dot.y, background: dot.color }} aria-label={`Show ${dot.meal.name}, ${dot.meal.kcal} calories`} aria-pressed={dot.meal.id === selected?.meal.id} onClick={() => setSelectedId(dot.meal.id)} />)}
     {active && <div className={`${styles.callout} ${right ? styles.right : styles.left} ${top ? styles.top : styles.bottom}`} style={{ width: labelWidth }} aria-live="polite"><strong>{active.meal.name}</strong><small>· {active.meal.kcal} kcal</small></div>}
   </div>;
 }
