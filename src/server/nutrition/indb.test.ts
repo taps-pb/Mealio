@@ -22,6 +22,9 @@ const idli: IndbRecord = { sourceId: "TEST003", name: "Idli", kcalPer100g: 140,
 const paneerCurry: IndbRecord = { sourceId: "TEST004", name: "Paneer curry", kcalPer100g: 160,
   proteinPer100g: 7, carbsPer100g: 12, servingUnit: "bowl",
   servingKcal: 240, servingProtein: 10.5, servingCarbs: 18 };
+const cashewSweet: IndbRecord = { sourceId: "TEST006", name: "Cashewnut burfi (Kaju burfi/Kaju katli)", kcalPer100g: 200,
+  proteinPer100g: 5, carbsPer100g: 20, servingUnit: "burfi",
+  servingKcal: 100, servingProtein: 2.5, servingCarbs: 10 };
 const item = (name: string, quantity: number | null, unit: string | null, grams: number | null): InterpretedItem =>
   ({ name, quantity, unit, grams, uncertainty: null });
 
@@ -48,6 +51,13 @@ describe("private INDB lookup", () => {
     expect(matchIndbFood(item("idli", 2, "each", null), [idli]).status).toBe("candidate");
     expect(matchIndbFood(item("idli", 2, null, null), [idli]).status).toBe("candidate");
     expect(matchIndbFood(item("paneer curry", 1, "bowl", null), [paneerCurry]).status).toBe("candidate");
+    expect(matchIndbFood(item("kaju burfi", null, null, 50), [cashewSweet])).toMatchObject({
+      status: "candidate", sourceId: "TEST006", nutrients: { kcal: 100, protein: 2.5, carbs: 10 },
+    });
+    expect(matchIndbFood(item("kaju katli", 2, "pieces", null), [cashewSweet])).toMatchObject({
+      status: "candidate", sourceId: "TEST006", nutrients: { kcal: 200, protein: 5, carbs: 20 },
+      uncertainty: expect.stringContaining("confirm your portion"),
+    });
   });
 
   it("rejects ambiguous, unknown, mismatched, and implausible portions", () => {
@@ -62,6 +72,15 @@ describe("private INDB lookup", () => {
     });
     expect(matchIndbFood(item("paneer curry", 1, null, null), [paneerCurry])).toMatchObject({ status: "unmatched", reason: "portion_missing" });
     expect(matchIndbFood(item("unknown dish", null, null, null), [paneerCurry])).toMatchObject({ status: "unmatched", reason: "no_match" });
+    expect(matchIndbFood(item("kaju katli", null, null, null), [cashewSweet])).toMatchObject({
+      status: "unmatched", reason: "portion_missing", uncertainty: expect.stringContaining("1 piece kaju katli"),
+    });
+    expect(matchIndbFood(item("kaju burfi", null, null, null), [cashewSweet])).toMatchObject({ status: "unmatched", reason: "portion_missing" });
+    expect(matchIndbFood(item("kaju katli", 2, "plate", null), [cashewSweet]).status).toBe("unmatched");
+    expect(matchIndbFood(item("burfi", 1, "piece", null), [cashewSweet,
+      { ...cashewSweet, sourceId: "TEST007", name: "Plain burfi (Burfi)" }])).toMatchObject({ status: "unmatched", reason: "no_match" });
+    expect(matchIndbFood(item("kaju katli", 2, "pieces", null), [cashewSweet,
+      { ...cashewSweet, sourceId: "TEST008" }])).toMatchObject({ status: "unmatched", reason: "no_match" });
     expect(matchIndbFood(item("roti roll", 1, "piece", null), [roti]).status).toBe("unmatched");
     expect(matchIndbFood(item("roti", 1, "roti", null), [{ ...roti, servingKcal: 2000 }]).status).toBe("unmatched");
     expect(matchIndbFood(item("poha", 1, "bowl", null), [{ ...poha, servingKcal: null }]).status).toBe("unmatched");

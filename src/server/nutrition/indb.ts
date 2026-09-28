@@ -42,9 +42,14 @@ export function parseIndbCatalog(raw: unknown): IndbRecord[] | null {
 }
 
 function dishNames(name: string): string[] {
-  // Only unqualified names before parentheses are eligible for exact aliases.
   const primary = name.split("(")[0];
-  return [...new Set(primary.split("/").map(normalize).filter(Boolean))];
+  const aliases = primary.split("/").map(normalize).filter(Boolean);
+  // Parenthetical names are eligible only as complete, qualified dish names.
+  // A bare "burfi" or "curry" is too broad to identify a particular recipe.
+  for (const group of name.matchAll(/\(([^()]*)\)/g)) {
+    aliases.push(...group[1].split("/").map(normalize).filter((alias) => alias.split(" ").length >= 2));
+  }
+  return [...new Set(aliases)];
 }
 
 /** Never choose one of multiple recipes with the same dish name. */
@@ -68,7 +73,10 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
   const unit = item.unit ? singular(normalize(item.unit)) : "";
   const servingUnit = record.servingUnit ? singular(normalize(record.servingUnit)) : "";
   const namedServing = dishNames(record.name).includes(servingUnit);
-  const namedPiece = (unit === "piece" || unit === "each") && namedServing;
+  // A catalog "burfi" serving is one sweet. Only an exact, unique burfi dish
+  // can treat an explicit piece/each count as that reference serving.
+  const burfiPiece = servingUnit === "burfi" && /\bburfi\b/.test(normalize(record.name.split("(")[0]));
+  const namedPiece = (unit === "piece" || unit === "each") && (namedServing || burfiPiece);
   const usableUnit = unit === servingUnit || dishNames(record.name).includes(unit) || namedPiece || (!unit && namedServing);
   const impliedGrams = record.servingKcal !== null && record.kcalPer100g > 0
     ? 100 * record.servingKcal / record.kcalPer100g : 0;
@@ -76,9 +84,10 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
     record.servingCarbs !== null && impliedGrams >= 5 && impliedGrams <= 500;
   if (item.quantity === null || !Number.isFinite(item.quantity) || item.quantity <= 0 || item.quantity > 100 ||
       !servingUnit || !usableUnit) {
-    const example = viableServing && servingUnit ? ` or an explicit count (e.g. "1 ${record.servingUnit} ${name}")` : "";
+    const suggestedUnit = burfiPiece ? "piece" : record.servingUnit;
+    const example = viableServing && suggestedUnit ? ` or an explicit count (e.g. "1 ${suggestedUnit} ${name}")` : "";
     return { status: "unmatched", reason: "portion_missing",
-      uncertainty: `Enter a measured weight in grams${example}, then estimate again; no INDB portion was assumed` };
+      uncertainty: `INDB dish found, but portion missing. Enter a measured weight in grams${example}, then estimate again; no INDB portion was assumed` };
   }
 
   // A reference serving may have an unreliable portion size. Reject obvious
