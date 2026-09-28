@@ -40,7 +40,7 @@ export type MealItemSnapshot = {
   kcal: number | null;
   protein: number | null;
   carbs: number | null;
-  source: "usda" | "manual" | "unmatched";
+  source: "usda" | "indb" | "manual" | "unmatched";
   sourceId: string | null;
   uncertainty: string | null;
 };

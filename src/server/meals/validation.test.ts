@@ -33,4 +33,14 @@ describe("meal save boundary", () => {
     expect(mealUpdateSchema.safeParse(update).success).toBe(true);
     expect(_key).toBeTruthy();
   });
+
+  it("preserves an INDB candidate with a source ID and visible uncertainty", () => {
+    const candidate = { ...valid.itemSnapshots[0], source: "indb", sourceId: "TEST001",
+      kcal: 120, protein: 4, carbs: 20, uncertainty: "Reference recipe and serving size may vary." };
+    expect(mealInputSchema.safeParse({ ...valid, itemSnapshots: [candidate] }).success).toBe(true);
+    expect(mealInputSchema.safeParse({ ...valid, itemSnapshots: [{ ...candidate, sourceId: null }] }).success).toBe(false);
+    expect(mealInputSchema.safeParse({ ...valid, itemSnapshots: [{ ...candidate, uncertainty: null }] }).success).toBe(false);
+    expect(mealInputSchema.safeParse({ ...valid, itemSnapshots: [{ ...candidate, source: "manual" }] }).success).toBe(false);
+    expect(mealInputSchema.safeParse({ ...valid, itemSnapshots: [{ ...candidate, source: "manual", sourceId: null }] }).success).toBe(true);
+  });
 });

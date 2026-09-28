@@ -9,12 +9,13 @@ const snapshot = z.strictObject({
   unit: z.string().trim().min(1).max(50).nullable(),
   grams: z.number().finite().positive().nullable(),
   kcal: macro.nullable(), protein: macro.nullable(), carbs: macro.nullable(),
-  source: z.enum(["usda", "manual", "unmatched"]),
+  source: z.enum(["usda", "indb", "manual", "unmatched"]),
   sourceId: z.string().min(1).max(80).nullable(),
   uncertainty: z.string().trim().min(1).max(500).nullable(),
 }).superRefine((item, context) => {
-  if (item.source === "usda" && !item.sourceId) context.addIssue({ code: "custom", path: ["sourceId"], message: "USDA source requires an ID" });
-  if (item.source !== "usda" && item.sourceId) context.addIssue({ code: "custom", path: ["sourceId"], message: "Only USDA items have a source ID" });
+  if ((item.source === "usda" || item.source === "indb") && !item.sourceId) context.addIssue({ code: "custom", path: ["sourceId"], message: "Catalog source requires an ID" });
+  if ((item.source === "manual" || item.source === "unmatched") && item.sourceId) context.addIssue({ code: "custom", path: ["sourceId"], message: "Manual or unmatched items cannot have a source ID" });
+  if (item.source === "indb" && !item.uncertainty) context.addIssue({ code: "custom", path: ["uncertainty"], message: "INDB recipe requires a review note" });
   if (item.source === "unmatched" && !item.uncertainty) context.addIssue({ code: "custom", path: ["uncertainty"], message: "Unmatched food must be marked uncertain" });
 });
 
