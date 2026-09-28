@@ -8,6 +8,7 @@ Mobile-first meal tracker for one privately provisioned owner. Describe a meal, 
 - A private INDB catalog was imported into Neon and enabled through the Production-only `INDB_CATALOG_SOURCE=database` setting. The workbook and derived JSON remain outside Git and the deployed filesystem. Local tests also cover the complete estimate → save → history → delete journey with synthetic credentials.
 - **Not yet cleared for real meal history:** the Neon snapshot taken before the catalog migration is a one-time rollback point, not a backup of future meals. Recurring backups with a tested restore, a full real-phone walkthrough (including editing and timezone boundaries), and final accessibility/security checks are still needed. Until then, use the hosted site for testing with dummy meals only.
 - `/preview` is development-only sample data (404 in production), not private meal history. The planning and visual reference files live in the parent `plan/` folder, outside this Git repository.
+- History supports search, date range and sort, with expandable day cards. The authenticated PDF export includes only matching meals, saved nutrient values, sources and uncertainty notes in the owner's timezone. A PDF is a readable report, **not** a database backup. The optional sideload-only Android wrapper is in `android/`; its APK and signing key are kept outside Git. An updated APK is required for saving PDF exports through the wrapper.
 
 ## How estimates work
 
@@ -31,7 +32,7 @@ For local file mode, set server-side `INDB_DATA_FILE` to the absolute path of th
 
 Vercel Production variables: `DATABASE_URL` (the **pooled** Neon URL), `FIREWORKS_API_KEY`, `USDA_API_KEY`, and `INDB_CATALOG_SOURCE=database`. Keep database credentials and API keys secret and do not give preview deployments access to the production database. `ADMIN_PASSWORD` is for the private one-time CLI only, not Vercel. Environment-variable changes require a redeployment; pushes to GitHub `main` automatically create production deployments. The public URL displays a login page, but meal APIs require owner authentication.
 
-Run `npm test`, `python3 -m unittest scripts/test_prepare_indb.py`, `npm run lint`, `npm run typecheck`, and `npm run build` before pushing. The latest local run passed **58 Vitest tests and 7 Python audit tests**, lint, typecheck and build. An installed pre-commit hook runs `tools/scan_staged_secrets.py` and blocks commits containing private dataset files or common credentials.
+Run `npm test`, `python3 -m unittest scripts/test_prepare_indb.py`, `npm run lint`, `npm run typecheck`, and `npm run build` before pushing. The latest local run passed **68 Vitest tests and 7 Python audit tests**, lint, typecheck and build. An installed pre-commit hook runs `tools/scan_staged_secrets.py` and blocks commits containing private dataset files or common credentials.
 
 Before using the site for real history, arrange recurring offsite database backups and verify a restore; then complete login → estimate → correct → save → history → edit → delete and logout on a real phone, including ambiguous/missing portions, local-day boundaries, and accessibility. Do not treat a successful build or a single snapshot as those release checks.
 

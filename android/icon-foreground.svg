@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mealio ring monogram">
+  <g transform="translate(35 35) scale(.86328125)">
+    <circle cx="256" cy="256" r="154" fill="#fff"/>
+    <g fill="none" stroke-width="35" stroke-linecap="round">
+      <path d="M 256 102 A 154 154 0 0 1 405 217" stroke="#007ea7"/>
+      <path d="M 409 255 A 154 154 0 0 1 298 404" stroke="#72b4cc"/>
+      <path d="M 256 410 A 154 154 0 0 1 105 298" stroke="#c87352"/>
+      <path d="M 102 256 A 154 154 0 0 1 216 107" stroke="#805ca7"/>
+    </g>
+    <path d="M 173 321 L 173 194 L 211 194 L 256 264 L 301 194 L 339 194 L 339 321 L 303 321 L 303 248 L 269 300 L 243 300 L 209 248 L 209 321 Z" fill="#331e38"/>
+  </g>
+</svg>

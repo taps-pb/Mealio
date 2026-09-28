@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mealio</string>
+    <string name="error_title">Can’t reach Mealio</string>
+    <string name="error_message">Check your connection, then try again. Your meal data stays on the website.</string>
+    <string name="retry">Try again</string>
+</resources>

@@ -12,11 +12,16 @@ playwright-report/
 *.log
 *.pem
 *.key
+*.jks
+*.keystore
 *.p12
 *.pfx
 *.sqlite
 .secrets/
 dataset/
 worktree/
+android/build/
+android/build.*/
+android/*.apk
 __pycache__/
 .DS_Store

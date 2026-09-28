@@ -24,6 +24,7 @@
     "@node-rs/argon2": "^2.2.1",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.6",
+    "pdfkit": "^0.20.2",
     "postgres": "^3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@types/node": "^22.15.0",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "drizzle-kit": "^0.31.11",
