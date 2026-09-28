@@ -1,5 +1,8 @@
 import { readFile, stat } from "node:fs/promises";
+import { eq } from "drizzle-orm";
 
+import { getDb } from "../db/client";
+import { indbCatalogs } from "../db/schema";
 import type { InterpretedItem } from "./interpret";
 
 export type IndbRecord = {
@@ -32,7 +35,7 @@ function validRecord(raw: unknown): raw is IndbRecord {
     record.servingUnit.length <= 50 && servingValues.every(validNutrient);
 }
 
-function parseCatalog(raw: unknown): IndbRecord[] | null {
+export function parseIndbCatalog(raw: unknown): IndbRecord[] | null {
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > 5000 || !raw.every(validRecord)) return null;
   const ids = new Set(raw.map((record: IndbRecord) => record.sourceId));
   return ids.size === raw.length ? raw : null;
@@ -89,9 +92,44 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
 }
 
 let cached: { path: string; modified: number; size: number; records: IndbRecord[] | null } | null = null;
+let databaseCache: { records: IndbRecord[] | null; expiresAt: number } | null = null;
+let loadingDatabase: Promise<IndbRecord[] | null> | null = null;
+const DATABASE_CACHE_MS = 5 * 60 * 1000;
 
-/** Disabled unless the owner explicitly supplies a private JSON catalog path. */
+async function loadDatabaseCatalog(): Promise<IndbRecord[] | null> {
+  try {
+    const [row] = await getDb().select({ records: indbCatalogs.records }).from(indbCatalogs)
+      .where(eq(indbCatalogs.id, "private")).limit(1);
+    return parseIndbCatalog(row?.records);
+  } catch {
+    // Neither database errors nor private catalog contents belong in a response.
+    return null;
+  }
+}
+
+async function databaseCatalog(): Promise<IndbRecord[] | null> {
+  if (databaseCache && Date.now() < databaseCache.expiresAt) return databaseCache.records;
+  if (!loadingDatabase) {
+    loadingDatabase = loadDatabaseCatalog().then((records) => {
+      databaseCache = { records, expiresAt: Date.now() + DATABASE_CACHE_MS };
+      return records;
+    }).finally(() => { loadingDatabase = null; });
+  }
+  return loadingDatabase;
+}
+
+/** Test-only cache reset. No production endpoint calls this. */
+export function resetIndbDatabaseCacheForTests(): void {
+  databaseCache = null;
+  loadingDatabase = null;
+}
+
+/** Disabled unless the owner explicitly selects the database or a private local JSON file. */
 export async function lookupIndbFood(item: InterpretedItem): Promise<IndbResult> {
+  if (process.env.INDB_CATALOG_SOURCE === "database") {
+    const records = await databaseCatalog();
+    return records ? matchIndbFood(item, records) : unmatched();
+  }
   const path = process.env.INDB_DATA_FILE;
   if (!path) return unmatched();
   try {
@@ -99,7 +137,7 @@ export async function lookupIndbFood(item: InterpretedItem): Promise<IndbResult>
     if (!metadata.isFile() || metadata.size > 5_000_000) return unmatched();
     if (!cached || cached.path !== path || cached.modified !== metadata.mtimeMs || cached.size !== metadata.size) {
       cached = { path, modified: metadata.mtimeMs, size: metadata.size,
-        records: parseCatalog(JSON.parse(await readFile(/* turbopackIgnore: true */ path, "utf8"))) };
+        records: parseIndbCatalog(JSON.parse(await readFile(/* turbopackIgnore: true */ path, "utf8"))) };
     }
     return cached.records ? matchIndbFood(item, cached.records) : unmatched();
   } catch {

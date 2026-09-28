@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "import-indb": "tsx scripts/import-indb.ts",
     "provision-admin": "tsx scripts/provision-admin.ts",
     "recover-admin": "tsx scripts/recover-admin.ts"
   },

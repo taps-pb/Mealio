@@ -68,3 +68,10 @@ export const meals = pgTable("meals", {
 
 export type Meal = typeof meals.$inferSelect;
 export type NewMeal = typeof meals.$inferInsert;
+
+// Private server-side catalog. No workbook or recipe data is shipped in Git.
+export const indbCatalogs = pgTable("indb_catalogs", {
+  id: text("id").primaryKey(),
+  records: jsonb("records").$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

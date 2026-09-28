@@ -1,10 +1,13 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../db/client", () => ({ getDb: vi.fn() }));
+
+import { getDb } from "../db/client";
 import type { InterpretedItem } from "./interpret";
-import { lookupIndbFood, matchIndbFood, type IndbRecord } from "./indb";
+import { lookupIndbFood, matchIndbFood, parseIndbCatalog, resetIndbDatabaseCacheForTests, type IndbRecord } from "./indb";
 
 // Synthetic values only; no INDB nutrient values are copied into the repository.
 const roti: IndbRecord = { sourceId: "TEST001", name: "Chapati/Roti", kcalPer100g: 250,
@@ -107,5 +110,57 @@ describe("opt-in catalog file", () => {
     const missing = await lookupIndbFood(item("unknown dish", null, null, null));
     expect(missing.status).toBe("unmatched");
     expect(JSON.stringify(missing)).not.toContain(folder);
+  });
+});
+
+describe("opt-in private database catalog", () => {
+  const previousSource = process.env.INDB_CATALOG_SOURCE;
+  const previousFile = process.env.INDB_DATA_FILE;
+  const query = vi.fn();
+  beforeEach(() => {
+    process.env.INDB_CATALOG_SOURCE = "database";
+    process.env.INDB_DATA_FILE = "/private/missing.json";
+    resetIndbDatabaseCacheForTests();
+    query.mockReset();
+    vi.mocked(getDb).mockReset().mockImplementation(() => ({
+      select: () => ({ from: () => ({ where: () => ({ limit: query }) }) }),
+    }) as unknown as ReturnType<typeof getDb>);
+  });
+  afterEach(() => {
+    if (previousSource === undefined) delete process.env.INDB_CATALOG_SOURCE;
+    else process.env.INDB_CATALOG_SOURCE = previousSource;
+    if (previousFile === undefined) delete process.env.INDB_DATA_FILE;
+    else process.env.INDB_DATA_FILE = previousFile;
+    resetIndbDatabaseCacheForTests();
+  });
+
+  it("loads validated synthetic records and shares one database read across estimates", async () => {
+    query.mockResolvedValue([{ records: [roti, poha] }]);
+    const [first, second] = await Promise.all([
+      lookupIndbFood(item("roti", 2, null, null)), lookupIndbFood(item("poha", 1, "bowl", null)),
+    ]);
+    expect(first).toMatchObject({ status: "candidate", sourceId: "TEST001" });
+    expect(second).toMatchObject({ status: "candidate", sourceId: "TEST002" });
+    expect((await lookupIndbFood(item("roti", 1, null, null))).status).toBe("candidate");
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed without a row, with invalid catalog, or with a database error", async () => {
+    for (const answer of [[], [{ records: [roti, { ...roti, sourceId: "TEST001" }] }]]) {
+      resetIndbDatabaseCacheForTests();
+      query.mockResolvedValueOnce(answer);
+      expect(await lookupIndbFood(item("roti", 1, null, null))).toMatchObject({ status: "unmatched", reason: "no_match" });
+    }
+    resetIndbDatabaseCacheForTests();
+    query.mockRejectedValueOnce(new Error("private database connection details"));
+    const result = await lookupIndbFood(item("roti", 1, null, null));
+    expect(result).toMatchObject({ status: "unmatched", reason: "no_match" });
+    expect(JSON.stringify(result)).not.toContain("private database connection details");
+  });
+
+  it("exports the same strict validator for the one-time import", () => {
+    expect(parseIndbCatalog([roti])).toEqual([roti]);
+    expect(parseIndbCatalog([])).toBeNull();
+    expect(parseIndbCatalog([roti, roti])).toBeNull();
   });
 });
