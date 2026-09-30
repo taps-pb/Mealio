@@ -25,3 +25,7 @@ android/build.*/
 android/*.apk
 __pycache__/
 .DS_Store
+*.dump.age
+*.dump.age.sha256
+age-identity.txt
+neon-direct-url.txt

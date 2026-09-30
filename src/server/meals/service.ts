@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { getDb } from "@/server/db/client";
 import { meals, type Meal } from "@/server/db/schema";
+import { savePortionCorrections } from "@/server/nutrition/personal";
 import { groupMealsByDay, localDayKey } from "./day";
 import type { MealInput, MealUpdate } from "./validation";
 
@@ -17,7 +18,7 @@ function stableJson(value: unknown): string {
 export function sameSavedMeal(row: Meal, input: MealInput): boolean {
   return row.description === input.description &&
     row.eatenAt.getTime() === input.eatenAt.getTime() &&
-    row.kcal === input.kcal && row.protein === input.protein && row.carbs === input.carbs &&
+    row.kcal === input.kcal && row.protein === input.protein && row.carbs === input.carbs && (row.fat ?? null) === (input.fat ?? null) &&
     row.provenance === input.provenance &&
     stableJson(row.itemSnapshots) === stableJson(input.itemSnapshots);
 }
@@ -33,7 +34,10 @@ export async function createMeal(adminId: string, input: MealInput) {
   const values = { ...input, adminId };
   const [created] = await db.insert(meals).values(values)
     .onConflictDoNothing({ target: [meals.adminId, meals.idempotencyKey] }).returning();
-  if (created) return { status: "created" as const, meal: created };
+  if (created) {
+    await savePortionCorrections(adminId, input.itemSnapshots);
+    return { status: "created" as const, meal: created };
+  }
   const [existing] = await db.select().from(meals).where(and(
     eq(meals.adminId, adminId), eq(meals.idempotencyKey, input.idempotencyKey),
   )).limit(1);
@@ -47,6 +51,7 @@ export async function updateMeal(adminId: string, id: string, input: MealUpdate)
   // Input comes from the review form. No AI call here and no data is re-estimated.
   const [updated] = await getDb().update(meals).set({ ...input, updatedAt: new Date() })
     .where(and(eq(meals.adminId, adminId), eq(meals.id, id))).returning();
+  if (updated) await savePortionCorrections(adminId, input.itemSnapshots);
   return updated ?? null;
 }
 

@@ -33,7 +33,10 @@ export function renderHistoryPdf(groups: HistoryGroup<Meal>[], timezone: string,
     options.through && `Through: ${options.through}`, `Sort: ${options.sort}`].filter(Boolean).join("  ·  ");
   text(scope, 9, muted);
   pdf.moveDown(.6);
-  text(`${totals.count} ${totals.count === 1 ? "meal" : "meals"} · ${totals.days} ${totals.days === 1 ? "day" : "days"} · ${totals.kcal} kcal · P ${totals.protein} g · C ${totals.carbs} g`, 11);
+  const allMeals = groups.flatMap((group) => group.meals);
+  const fatTotal = allMeals.length > 0 && allMeals.every((meal) => meal.fat !== null) ?
+    Math.round(allMeals.reduce((sum, meal) => sum + (meal.fat ?? 0), 0) * 100) / 100 : null;
+  text(`${totals.count} ${totals.count === 1 ? "meal" : "meals"} · ${totals.days} ${totals.days === 1 ? "day" : "days"} · ${totals.kcal} kcal · P ${totals.protein} g · C ${totals.carbs} g${fatTotal === null ? "" : ` · F ${fatTotal} g`}`, 11);
   text("Saved values are snapshots. Candidate sources and uncertain portions still require review.", 9, muted);
   pdf.moveDown(.8);
 
@@ -46,12 +49,20 @@ export function renderHistoryPdf(groups: HistoryGroup<Meal>[], timezone: string,
       ensureRoom(75);
       const time = times.format(meal.eatenAt);
       text(`${time} · ${meal.description}`, 11);
-      text(`${meal.kcal} kcal · P ${meal.protein} g · C ${meal.carbs} g · ${meal.provenance}`, 9, muted, 12);
+      text(`${meal.kcal} kcal · P ${meal.protein} g · C ${meal.carbs} g${meal.fat === null ? " · F unknown" : ` · F ${meal.fat} g`} · ${meal.provenance}`, 9, muted, 12);
       for (const item of meal.itemSnapshots) {
-        const source = item.source === "indb" ? "INDB candidate" : item.source === "usda" ? "USDA candidate" : item.source;
+        const source = item.source === "indb" ? "INDB reference recipe" : item.source === "usda" ? "USDA candidate" :
+          item.source === "recipe_estimate" ? "Ingredient-based recipe estimate" : item.source;
         const portion = [item.quantity === null ? "" : String(item.quantity), item.unit ?? "", item.grams === null ? "" : `${item.grams} g`].filter(Boolean).join(" ");
-        text(`${item.name}${portion ? ` (${portion})` : ""} · ${source}${item.sourceId ? ` · ${item.sourceId}` : ""}`, 8, muted, 12);
+        text(`${item.name}${portion ? ` (${portion})` : ""} · ${source}${item.sourceId ? ` · ${item.sourceId}` : ""}${item.matchConfidence ? ` · ${item.matchConfidence} confidence` : ""}`, 8, muted, 12);
+        if (item.fat !== null && item.fat !== undefined) text(`${item.fat} g fat${item.fiber == null ? "" : ` · ${item.fiber} g fiber`}${item.sugar == null ? "" : ` · ${item.sugar} g sugar`}`, 8, muted, 12);
         if (item.uncertainty) text(`Uncertain: ${item.uncertainty}`, 8, plum, 12);
+        for (const assumption of item.assumptions ?? []) text(`Assumption: ${assumption}`, 8, muted, 12);
+        if (item.recipeUncertainty) text(`Recipe uncertainty: ${item.recipeUncertainty}`, 8, plum, 12);
+        for (const ingredient of item.ingredients ?? []) {
+          ensureRoom(35);
+          text(`- ${ingredient.name}, ${ingredient.grams} g · ${ingredient.kcal ?? "?"} kcal · ${ingredient.source}`, 8, muted, 20);
+        }
       }
       pdf.moveDown(.5);
     }

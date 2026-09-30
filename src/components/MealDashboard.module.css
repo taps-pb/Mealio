@@ -47,6 +47,12 @@
 .item strong { display: block; overflow-wrap: anywhere; }
 .sourceBadge { display: inline-block; margin: 4px 0; padding: 2px 8px; border: 1px solid var(--color-arc-primary); border-radius: 999px; color: var(--color-arc-primary); font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
 .item .uncertain { color: var(--color-text); border-left: 3px solid var(--color-arc-tertiary); padding: 8px 10px; background: var(--color-macro); border-radius: 4px; }
+.snapshotInfo { margin: 6px 0 12px; color: var(--color-muted); font-size: 12px; }
+.snapshotInfo p { margin: 6px 0; overflow-wrap: anywhere; }
+.snapshotInfo .assumption { padding-left: 10px; border-left: 2px solid var(--color-border); }
+.snapshotInfo summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--color-arc-primary); font-weight: 600; }
+.snapshotInfo ul { padding-left: 18px; line-height: 1.6; overflow-wrap: anywhere; }
+.editor .macros > div { min-width: calc(50% - 8px); }
 .actions { margin-top: 20px; flex-wrap: wrap; }
 .actions > button { flex: 1 1 120px; }
 .primary { min-height: 44px; padding: 10px 16px; border: 0; border-radius: 10px; background: var(--color-arc-primary); color: #fff; font: inherit; font-weight: 700; }

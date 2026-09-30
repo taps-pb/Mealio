@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const admins = pgTable("admins", {
   id: uuid("id").primaryKey(),
@@ -40,9 +40,20 @@ export type MealItemSnapshot = {
   kcal: number | null;
   protein: number | null;
   carbs: number | null;
-  source: "usda" | "indb" | "manual" | "unmatched";
+  fat?: number | null;
+  fiber?: number | null;
+  sugar?: number | null;
+  source: "usda" | "indb" | "manual" | "unmatched" | "recipe_estimate";
   sourceId: string | null;
   uncertainty: string | null;
+  assumptions?: string[];
+  matchConfidence?: "high" | "medium" | "low";
+  portionUncertainty?: string | null;
+  recipeUncertainty?: string | null;
+  per100g?: { kcal: number; protein: number; carbs: number; fat: number | null; fiber: number | null; sugar: number | null } | null;
+  portionEdited?: boolean;
+  ingredients?: { name: string; grams: number; kcal: number | null; protein: number | null; carbs: number | null;
+    fat: number | null; source: "usda" | "indb" | "manual" | "unmatched"; sourceId: string | null; uncertainty: string | null }[];
 };
 
 export const mealProvenance = pgEnum("meal_provenance", ["manual", "estimated", "corrected"]);
@@ -55,6 +66,7 @@ export const meals = pgTable("meals", {
   kcal: numeric("kcal", { precision: 10, scale: 2, mode: "number" }).notNull(),
   protein: numeric("protein", { precision: 10, scale: 2, mode: "number" }).notNull(),
   carbs: numeric("carbs", { precision: 10, scale: 2, mode: "number" }).notNull(),
+  fat: numeric("fat", { precision: 10, scale: 2, mode: "number" }),
   itemSnapshots: jsonb("item_snapshots").$type<MealItemSnapshot[]>().notNull(),
   provenance: mealProvenance("provenance").notNull(),
   idempotencyKey: text("idempotency_key"),
@@ -68,6 +80,21 @@ export const meals = pgTable("meals", {
 
 export type Meal = typeof meals.$inferSelect;
 export type NewMeal = typeof meals.$inferInsert;
+
+export const nutritionCache = pgTable("nutrition_cache", {
+  adminId: uuid("admin_id").notNull().references(() => admins.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  snapshot: jsonb("snapshot").$type<MealItemSnapshot>().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (table) => [primaryKey({ columns: [table.adminId, table.key] }), index("nutrition_cache_expiry_idx").on(table.expiresAt)]);
+
+export const portionPreferences = pgTable("portion_preferences", {
+  adminId: uuid("admin_id").notNull().references(() => admins.id, { onDelete: "cascade" }),
+  foodKey: text("food_key").notNull(),
+  unit: text("unit").notNull(),
+  gramsPerUnit: numeric("grams_per_unit", { precision: 10, scale: 2, mode: "number" }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({ columns: [table.adminId, table.foodKey, table.unit] })]);
 
 // Private server-side catalog. No workbook or recipe data is shipped in Git.
 export const indbCatalogs = pgTable("indb_catalogs", {

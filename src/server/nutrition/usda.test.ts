@@ -18,19 +18,55 @@ const mango = { fdcId: 169910, description: "Mangos, raw", foodNutrients: [
 const response = (foods: unknown[]) => new Response(JSON.stringify({ foods }), { status: 200 });
 
 describe("USDA review candidates", () => {
+  it.each([
+    ["apple", "Apples, raw, with skin", "medium", 182],
+    ["banana", "Bananas, raw", "medium", 118],
+    ["egg", "Egg, whole, raw, fresh", "large", 50],
+    ["orange", "Oranges, raw, all commercial varieties", "medium", 131],
+    ["milk", "Milk, whole, 3.25% milkfat", "cup", 244],
+    ["cooked rice", "Rice, white, long-grain, regular, enriched, cooked", "cup", 158],
+  ])("resolves %s using the selected USDA food's actual portion", async (name, description, portion, weight) => {
+    const common = { fdcId: 999, description, foodNutrients: [
+      { nutrientId: 1008, value: 100 }, { nutrientId: 1003, value: 2 },
+      { nutrientId: 1005, value: 10 }, { nutrientId: 1004, value: 3 },
+    ] };
+    const fetchImpl = vi.fn().mockResolvedValueOnce(response([common, { ...common, fdcId: 998, description: `${name} pie` }]))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ description, foodPortions: [{ amount: 1, modifier: portion, gramWeight: weight }] })));
+    const result = await lookupUsdaFood({ name, quantity: 1, unit: name === "milk" ? "glass" : name === "cooked rice" ? "cup" : null,
+      grams: null, uncertainty: null }, { apiKey: testApiKey, fetchImpl });
+    expect(result).toMatchObject({ status: "candidate", sourceId: "999", grams: weight,
+      nutrients: { kcal: weight, fat: Math.round(3 * weight) / 100 } });
+    if (result.status === "candidate") expect(result.portionUncertainty).toContain(`USDA ${portion} portion`);
+  });
+
+  it("uses measured grams without assuming a portion, and rejects wrong cooking states", async () => {
+    const cooked = { ...food, description: "Rice, white, long-grain, regular, enriched, cooked" };
+    const fetchImpl = vi.fn().mockImplementation(async () => response([cooked, { ...cooked, fdcId: 124, description: "Rice, white, raw" }]));
+    const found = await lookupUsdaFood({ name: "cooked rice", quantity: null, unit: null, grams: 200, uncertainty: null },
+      { apiKey: testApiKey, fetchImpl });
+    expect(found).toMatchObject({ status: "candidate", grams: 200, nutrients: { kcal: 330 } });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect((await lookupUsdaFood({ name: "fried rice", quantity: 1, unit: null, grams: 200, uncertainty: null },
+      { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
+  });
+
   it("scales per-100g nutrients and retains portion uncertainty", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response([food]));
     const result = await lookupUsdaFood(item, { apiKey: testApiKey, fetchImpl });
-    expect(result).toEqual({ status: "candidate", sourceId: "123", description: "Chicken breast", grams: 150, nutrients: { kcal: 247.5, protein: 46.5, carbs: 0 }, uncertainty: "Estimated weight" });
+    expect(result).toMatchObject({ status: "candidate", sourceId: "123", description: "Chicken breast", grams: 150,
+      nutrients: { kcal: 247.5, protein: 46.5, carbs: 0, fat: null }, uncertainty: "Estimated weight" });
     expect(JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string).query).toBe("chicken breast");
   });
 
-  it("rejects unrelated hits, missing nutrients, and unknown weight", async () => {
+  it("rejects unrelated hits and missing nutrients, but estimates unknown weight with a warning", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response([{ ...food, description: "Chicken thigh" }]));
     expect((await lookupUsdaFood(item, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
     fetchImpl.mockResolvedValue(response([{ ...food, foodNutrients: food.foodNutrients.slice(0, 2) }]));
     expect((await lookupUsdaFood(item, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
-    expect((await lookupUsdaFood({ ...item, grams: null }, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
+    fetchImpl.mockResolvedValueOnce(response([food])).mockResolvedValueOnce(new Response(JSON.stringify({ description: food.description, foodPortions: [] })));
+    const estimated = await lookupUsdaFood({ ...item, grams: null }, { apiKey: testApiKey, fetchImpl });
+    expect(estimated.status).toBe("candidate");
+    if (estimated.status === "candidate") expect(estimated.portionUncertainty).toContain("no source-backed portion");
   });
 
   it("returns generic unavailable failures without leaking a key", async () => {
@@ -50,11 +86,11 @@ describe("USDA review candidates", () => {
     expect(result.status).toBe("candidate");
     if (result.status === "candidate") {
       expect(result.grams).toBe(50);
-      expect(result.nutrients).toEqual({ kcal: 71.5, protein: 6.3, carbs: .36 });
-      expect(result.uncertainty).toContain("Assumed 1 × 50 g USDA large portion");
-      expect(result.uncertainty).toContain("confirm size and preparation");
+      expect(result.nutrients).toMatchObject({ kcal: 71.5, protein: 6.3, carbs: .36, fat: null });
+      expect(result.uncertainty).toContain("Estimated 1 × 50 g USDA large portion");
+      expect(result.uncertainty).toContain("confirm size");
     }
-    expect(JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string).query).toBe("egg, whole, raw");
+    expect(JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string).query).toBe("Egg, whole, raw, fresh");
     expect(fetchImpl.mock.calls[1][0]).toContain("/food/171287");
   });
 
@@ -68,20 +104,23 @@ describe("USDA review candidates", () => {
     if (result.status === "candidate") {
       expect(result.sourceId).toBe("169910");
       expect(result.grams).toBe(336);
-      expect(result.nutrients).toEqual({ kcal: 201.6, protein: 2.76, carbs: 50.4 });
-      expect(result.uncertainty).toContain("Assumed 1 × 336 g USDA fruit without refuse portion");
+      expect(result.nutrients).toMatchObject({ kcal: 201.6, protein: 2.76, carbs: 50.4 });
+      expect(result.uncertainty).toContain("Estimated 1 × 336 g USDA fruit without refuse portion");
     }
   });
 
-  it("never substitutes egg white, a missing portion, or an unknown count food", async () => {
+  it("never substitutes egg white; missing portions remain explicitly uncertain", async () => {
     const fetchImpl = vi.fn().mockResolvedValueOnce(response([{ ...egg, description: "Egg white, raw" }]))
       .mockResolvedValueOnce(response([egg]))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ description: egg.description, foodPortions: [] })));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ description: egg.description, foodPortions: [] })))
+      .mockResolvedValueOnce(response([]));
     const count = { name: "egg", quantity: 1, unit: "each", grams: null, uncertainty: null };
     expect((await lookupUsdaFood(count, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
-    expect((await lookupUsdaFood(count, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
+    const estimated = await lookupUsdaFood(count, { apiKey: testApiKey, fetchImpl });
+    expect(estimated.status).toBe("candidate");
+    if (estimated.status === "candidate") expect(estimated.portionUncertainty).toContain("Confirm the weight");
     expect((await lookupUsdaFood({ ...count, name: "unknown fruit" }, { apiKey: testApiKey, fetchImpl })).status).toBe("unmatched");
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -144,9 +183,9 @@ describe("private USDA key loading", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("does not read a key file when the portion weight is unknown", async () => {
+  it("fails closed when a portion weight is unknown and credentials are unavailable", async () => {
     const result = await lookupUsdaFood({ ...item, grams: null }, { fetchImpl });
-    expect(result.status).toBe("unmatched");
+    expect(result.status).toBe("unavailable");
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

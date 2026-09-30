@@ -13,7 +13,8 @@ export type IndbRecord = {
 };
 
 type Candidate = { status: "candidate"; sourceId: string; grams: number | null;
-  nutrients: { kcal: number; protein: number; carbs: number }; uncertainty: string };
+  nutrients: { kcal: number; protein: number; carbs: number };
+  per100g: { kcal: number; protein: number; carbs: number; fat: null; fiber: null; sugar: null }; uncertainty: string };
 type Unmatched = { status: "unmatched"; reason: "no_match" | "portion_missing"; uncertainty: string };
 export type IndbResult = Candidate | Unmatched;
 
@@ -59,6 +60,8 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
   const matches = records.filter((record) => dishNames(record.name).includes(name));
   if (matches.length !== 1) return unmatched();
   const record = matches[0];
+  const per100g = { kcal: record.kcalPer100g, protein: record.proteinPer100g, carbs: record.carbsPer100g,
+    fat: null, fiber: null, sugar: null } as const;
   const note = "INDB (Anuvaad Solutions, 2024.11) reference recipe; ingredients, preparation and serving size may differ from yours.";
   const uncertainty = [item.uncertainty, note].filter(Boolean).join("; ");
   if (item.grams !== null && Number.isFinite(item.grams) && item.grams > 0 && item.grams <= 10000) {
@@ -68,7 +71,7 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
     const nutrients = { kcal: round2(record.kcalPer100g * scale), protein: round2(record.proteinPer100g * scale),
       carbs: round2(record.carbsPer100g * scale) };
     if (Object.values(nutrients).some((value) => value > 99_999_999.99)) return unmatched();
-    return { status: "candidate", sourceId: record.sourceId, grams, nutrients, uncertainty };
+    return { status: "candidate", sourceId: record.sourceId, grams, nutrients, per100g, uncertainty };
   }
   const unit = item.unit ? singular(normalize(item.unit)) : "";
   const servingUnit = record.servingUnit ? singular(normalize(record.servingUnit)) : "";
@@ -93,7 +96,7 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
   // A reference serving may have an unreliable portion size. Reject obvious
   // outliers without claiming that the ratio is a measured weight.
   if (!viableServing || record.servingKcal === null || record.servingProtein === null || record.servingCarbs === null) return unmatched();
-  return { status: "candidate", sourceId: record.sourceId, grams: null,
+  return { status: "candidate", sourceId: record.sourceId, grams: null, per100g,
     nutrients: { kcal: round2(record.servingKcal * item.quantity),
       protein: round2(record.servingProtein * item.quantity),
       carbs: round2(record.servingCarbs * item.quantity) },

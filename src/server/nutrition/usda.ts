@@ -3,118 +3,153 @@ import { resolve } from "node:path";
 
 import type { InterpretedItem } from "./interpret";
 
-type Nutrients = { kcal: number; protein: number; carbs: number };
+export type Nutrients = { kcal: number; protein: number; carbs: number; fat: number | null; fiber: number | null; sugar: number | null };
 export type LookupResult =
-  | { status: "candidate"; sourceId: string; description: string; grams: number; nutrients: Nutrients; uncertainty: string | null }
+  | { status: "candidate"; sourceId: string; description: string; grams: number; nutrients: Nutrients;
+      per100g: Nutrients; uncertainty: string | null; matchConfidence: "high" | "medium" | "low";
+      portionUncertainty: string | null; assumptions: string[] }
   | { status: "unmatched" | "unavailable"; uncertainty: string };
 
-const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 const round2 = (value: number) => Math.round(value * 100) / 100;
-const countFoods = {
-  egg: { query: "egg, whole, raw", description: "Egg, whole, raw, fresh", portion: "large", label: "large raw whole egg" },
-  mango: { query: "mango, raw", description: "Mangos, raw", portion: "fruit without refuse", label: "whole raw mango (edible portion)" },
-} as const;
-type CountFood = keyof typeof countFoods;
-const countName = (name: string): CountFood | null => {
-  const normalized = normalize(name);
-  if (normalized === "egg" || normalized === "eggs") return "egg";
-  if (normalized === "mango" || normalized === "mangos" || normalized === "mangoes") return "mango";
-  return null;
-};
-const isCountUnit = (unit: string | null) => unit === null || ["each", "piece", "pieces", "fruit"].includes(normalize(unit));
+const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+const queryHint: Record<string, string> = { apple: "Apples, raw, with skin", banana: "Bananas, raw",
+  egg: "Egg, whole, raw, fresh", orange: "Oranges, raw, all commercial varieties",
+  milk: "Milk, whole, 3.25% milkfat", mango: "Mangos, raw", "cooked rice": "Rice, white, long-grain, regular, enriched, cooked" };
+const roots: Record<string, string> = { apple: "apple", apples: "apple", banana: "banana", bananas: "banana",
+  egg: "egg", eggs: "egg", orange: "orange", oranges: "orange", mango: "mango", mangos: "mango",
+  milk: "milk", rice: "rice" };
+const unsafeExtras = new Set(["fried", "grilled", "pie", "juice", "sauce", "syrup", "dried", "powder", "canned", "breaded",
+  "scrambled", "white", "yolk", "sweetened", "sugar", "candy", "butter", "flavored", "flavoured", "baby"]);
 
 function parseKeyFile(raw: string): string | null {
   const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length !== 1) return null;
   const match = /^USDA_API_KEY\s*=\s*(.*)$/.exec(lines[0]);
   let key = (match ? match[1] : lines[0]).trim();
-  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
-    key = key.slice(1, -1).trim();
-  }
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) key = key.slice(1, -1).trim();
   return key && key.length <= 512 && !/[\s='"]/.test(key) ? key : null;
 }
-
 async function resolveApiKey(explicit: string | undefined): Promise<string | null> {
   if (explicit !== undefined) return explicit.trim() || null;
   if (process.env.USDA_API_KEY?.trim()) return process.env.USDA_API_KEY.trim();
-  try {
-    const file = process.env.USDA_KEY_FILE || resolve(process.cwd(), "../.secrets/usda_api.txt");
-    // The local secret lives outside the deployable project; never bundle it.
-    return parseKeyFile(await readFile(/* turbopackIgnore: true */ file, "utf8"));
-  } catch {
-    // Neither the secret's contents nor the file path belong in logs or responses.
-    return null;
-  }
+  try { return parseKeyFile(await readFile(/* turbopackIgnore: true */ process.env.USDA_KEY_FILE || resolve(process.cwd(), "../.secrets/usda_api.txt"), "utf8")); }
+  catch { return null; }
 }
 
-/** Returns a review candidate, never a confirmed nutrient value. */
+function suitable(name: string, description: string): { rank: number; confidence: "high" | "medium" } | null {
+  const q = normalize(name), d = normalize(description);
+  const qt = q.split(" "), dt = d.split(" ");
+  const core = roots[qt.at(-1) ?? ""] ?? qt.at(-1);
+  if (!core || !dt.some((token) => (roots[token] ?? token) === core)) return null;
+  const known = ["apple", "banana", "egg", "orange", "mango", "milk", "rice"].includes(core);
+  if (qt.some((token) => token !== core && !dt.includes(token) &&
+    !(token === "boiled" && core === "rice" && dt.includes("cooked")))) return null;
+  if (dt.some((token) => unsafeExtras.has(token) && !qt.includes(token) &&
+    !(core === "rice" && token === "white") && !(core === "milk" && token === "whole"))) return null;
+  if (core === "rice" && !dt.includes("cooked")) return null;
+  if (core === "egg" && (!dt.includes("whole") || !dt.includes("raw"))) return null;
+  if (["apple", "banana", "orange", "mango"].includes(core) && !dt.includes("raw")) return null;
+  if (core === "milk" && (!dt.includes("whole") || dt.includes("skim"))) return null;
+  if (!known && qt.some((token) => !dt.includes(token))) return null;
+  const hint = queryHint[q];
+  const rank = (hint && normalize(hint) === d ? 10 : 0) + (d === q ? 5 : 0) + qt.filter((token) => dt.includes(token)).length * 2 - dt.length * .03;
+  return { rank, confidence: hint && normalize(hint) === d || d === q ? "high" : "medium" };
+}
+
+function parseNutrients(food: { foodNutrients?: unknown }): Nutrients | null {
+  if (!Array.isArray(food.foodNutrients)) return null;
+  const entries = food.foodNutrients as { nutrientId?: number; value?: unknown }[];
+  const find = (id: number): number | null => {
+    const value = entries.find((entry) => entry?.nutrientId === id)?.value;
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100000 ? value : null;
+  };
+  const kcal = find(1008), protein = find(1003), carbs = find(1005);
+  if (kcal === null || protein === null || carbs === null) return null;
+  return { kcal, protein, carbs, fat: find(1004), fiber: find(1079), sugar: find(2000) };
+}
+
+const scale = (data: Nutrients, grams: number): Nutrients => ({
+  kcal: round2(data.kcal * grams / 100), protein: round2(data.protein * grams / 100), carbs: round2(data.carbs * grams / 100),
+  fat: data.fat === null ? null : round2(data.fat * grams / 100),
+  fiber: data.fiber === null ? null : round2(data.fiber * grams / 100),
+  sugar: data.sugar === null ? null : round2(data.sugar * grams / 100),
+});
+
+/** Conservative candidate; source values are per 100 g, portion assumptions are explicit. */
 export async function lookupUsdaFood(item: InterpretedItem, options: { fetchImpl?: typeof fetch; apiKey?: string } = {}): Promise<LookupResult> {
-  const kind = countName(item.name);
-  const needsPortion = item.grams === null;
-  if (needsPortion && (!kind || item.quantity === null || !isCountUnit(item.unit))) {
-    return { status: "unmatched", uncertainty: "Portion weight unknown; enter nutrients manually." };
-  }
   const key = await resolveApiKey(options.apiKey);
-  if (!key) return { status: "unavailable", uncertainty: "Nutrition lookup unavailable; enter nutrients manually." };
+  if (!key) return { status: "unavailable", uncertainty: "Nutrition lookup unavailable." };
+  const name = normalize(item.name);
+  const canonical = name === "boiled rice" ? "cooked rice" : name;
+  const query = queryHint[canonical] ?? item.name;
   try {
-    const query = kind ? countFoods[kind].query : item.name;
-    const response = await (options.fetchImpl ?? fetch)(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, dataType: ["Foundation", "SR Legacy"], pageSize: 5 }),
-      signal: AbortSignal.timeout(10000), cache: "no-store",
-    });
-    if (!response.ok) return { status: "unavailable", uncertainty: "Nutrition lookup unavailable; enter nutrients manually." };
+    const request = options.fetchImpl ?? fetch;
+    const api = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}`;
+    const response = await request(api, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, dataType: ["Foundation", "SR Legacy"], pageSize: 15 }),
+      signal: AbortSignal.timeout(10000), cache: "no-store" });
+    if (!response.ok) return { status: "unavailable", uncertainty: "Nutrition lookup unavailable." };
     const payload: unknown = await response.json();
-    if (!payload || typeof payload !== "object" || !("foods" in payload) || !Array.isArray(payload.foods)) {
-      return { status: "unavailable", uncertainty: "Nutrition lookup returned invalid data." };
-    }
-    for (const food of payload.foods) {
-      if (!food || typeof food !== "object" || typeof food.description !== "string" || !Number.isInteger(food.fdcId) || !Array.isArray(food.foodNutrients)) continue;
-      const normalizedQuery = normalize(query);
-      const description = normalize(food.description);
-      // Reject an unrelated top search hit instead of silently substituting it.
-      if (kind ? description !== normalize(countFoods[kind].description) :
-          !normalizedQuery || !(description === normalizedQuery || description.startsWith(normalizedQuery + " "))) continue;
-      const get = (id: number) => {
-        const value = food.foodNutrients.find((entry: { nutrientId?: number }) => entry?.nutrientId === id)?.value;
-        return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-      };
-      const kcal = get(1008), protein = get(1003), carbs = get(1005);
-      if (kcal === null || protein === null || carbs === null) continue;
-      let grams = item.grams;
-      let portionNote: string | null = null;
-      if (grams === null && kind && item.quantity !== null) {
-        const detailResponse = await (options.fetchImpl ?? fetch)(`https://api.nal.usda.gov/fdc/v1/food/${food.fdcId}?api_key=${encodeURIComponent(key)}`, {
-          signal: AbortSignal.timeout(10000), cache: "no-store",
-        });
-        if (!detailResponse.ok) return { status: "unavailable", uncertainty: "USDA portion lookup unavailable; enter nutrients manually." };
-        const detail: unknown = await detailResponse.json();
-        if (!detail || typeof detail !== "object" || !("description" in detail) ||
-            typeof detail.description !== "string" || normalize(detail.description) !== normalize(countFoods[kind].description) ||
-            !("foodPortions" in detail) || !Array.isArray(detail.foodPortions)) {
-          return { status: "unmatched", uncertainty: "USDA portion not verified; enter weight and nutrients manually." };
+    if (!payload || typeof payload !== "object" || !("foods" in payload) || !Array.isArray(payload.foods)) return { status: "unavailable", uncertainty: "Nutrition lookup returned invalid data." };
+    const candidates = payload.foods.flatMap((food: unknown) => {
+      if (!food || typeof food !== "object" || !("description" in food) || typeof food.description !== "string" ||
+        !("fdcId" in food) || !Number.isInteger(food.fdcId) || typeof food.fdcId !== "number") return [];
+      const candidate = food as { description: string; fdcId: number; foodNutrients?: unknown };
+      const match = suitable(canonical, candidate.description);
+      const per100g = parseNutrients(candidate);
+      return match && per100g ? [{ food: candidate, match, per100g }] : [];
+    }).sort((a, b) => b.match.rank - a.match.rank);
+    if (!candidates.length) return { status: "unmatched", uncertainty: "No sufficiently matching USDA food with complete nutrients." };
+    const { food, match, per100g } = candidates[0];
+    let grams = item.grams;
+    let portionUncertainty: string | null = null;
+    const assumptions: string[] = [];
+    if (canonical === "egg") assumptions.push("Whole raw egg nutrient reference; cooking or added fat changes values.");
+    if (canonical === "milk") assumptions.push("Whole milk nutrient reference; other fat levels differ.");
+    if (canonical === "cooked rice") assumptions.push("White cooked rice nutrient reference; variety and added oil differ.");
+    if (grams === null) {
+      const units = ["small", "medium", "large"].includes(normalize(item.unit ?? "")) ? normalize(item.unit ?? "") :
+        name === "egg" ? "large" : ["apple", "banana", "orange"].includes(name) ? "medium" :
+        name === "mango" ? "fruit" :
+        (name === "milk" || name === "cooked rice" || name === "boiled rice") && ["glass", "cup"].includes(normalize(item.unit ?? "")) ? "cup" : "";
+      // A detail outage must not discard the matched per-100g nutrition.
+      try {
+        const detail = await request(`https://api.nal.usda.gov/fdc/v1/food/${food.fdcId}?api_key=${encodeURIComponent(key)}`, {
+          signal: AbortSignal.timeout(10000), cache: "no-store" });
+        const data: unknown = detail.ok ? await detail.json() : null;
+        if (data && typeof data === "object" && "description" in data && data.description === food.description &&
+            "foodPortions" in data && Array.isArray(data.foodPortions)) {
+          const ref = data.foodPortions.find((portion: { amount?: number; modifier?: string; gramWeight?: number }) =>
+            portion?.amount === 1 && typeof portion.modifier === "string" && !!units &&
+            normalize(portion.modifier).split(" ").includes(units) && typeof portion.gramWeight === "number" &&
+            Number.isFinite(portion.gramWeight) && portion.gramWeight >= 5 && portion.gramWeight <= 1000);
+          if (ref) {
+            grams = round2(ref.gramWeight * (item.quantity ?? 1));
+            portionUncertainty = `Estimated ${item.quantity ?? 1} × ${ref.gramWeight} g USDA ${ref.modifier} portion; confirm size${item.unit === "glass" ? " (glass assumed one cup)" : ""}.`;
+            assumptions.push(portionUncertainty);
+          }
         }
-        const portion = detail.foodPortions.find((entry: { amount?: number; modifier?: string; gramWeight?: number }) =>
-          entry?.amount === 1 && typeof entry.modifier === "string" &&
-          normalize(entry.modifier) === normalize(countFoods[kind].portion) &&
-          typeof entry.gramWeight === "number" && Number.isFinite(entry.gramWeight) && entry.gramWeight > 0);
-        if (!portion || !Number.isFinite(item.quantity * portion.gramWeight) || item.quantity * portion.gramWeight > 10000) {
-          return { status: "unmatched", uncertainty: "USDA portion weight unavailable; enter weight and nutrients manually." };
-        }
-        grams = round2(item.quantity * portion.gramWeight);
-        portionNote = `Assumed ${item.quantity} × ${portion.gramWeight} g USDA ${countFoods[kind].portion} portion (${countFoods[kind].label}); confirm size and preparation.`;
+      } catch { /* A clearly labeled low-confidence generic portion remains available. */ }
+      if (grams === null) {
+        const count = item.quantity ?? 1;
+        if (!Number.isFinite(count) || count <= 0 || count > 100) return { status: "unmatched", uncertainty: "Portion amount unknown; enter a measured weight." };
+        const typical = ({ apple: 182, banana: 118, egg: 50, orange: 131, mango: 200,
+          milk: ["glass", "cup"].includes(item.unit ?? "") ? 244 : 100,
+          "cooked rice": item.unit === "cup" ? 158 : 100 } as Record<string, number>)[canonical] ?? 100;
+        grams = round2(typical * count);
+        portionUncertainty = `Estimated ${grams} g (${count} × ${typical} g typical serving); no source-backed portion weight was available for this matched food. Confirm the weight${item.unit === "glass" ? " (glass assumed one cup)" : ""}.`;
+        assumptions.push(portionUncertainty);
       }
-      if (grams === null) return { status: "unmatched", uncertainty: "Portion weight unknown; enter nutrients manually." };
-      const scale = grams / 100;
-      return {
-        status: "candidate", sourceId: String(food.fdcId), description: food.description, grams,
-        nutrients: { kcal: round2(kcal * scale), protein: round2(protein * scale), carbs: round2(carbs * scale) },
-        uncertainty: [item.uncertainty, portionNote, description !== normalizedQuery ? `Check USDA match: ${food.description}` : null].filter(Boolean).join("; ") || null,
-      };
     }
-    return { status: "unmatched", uncertainty: "No sufficiently matching USDA food with complete nutrients; enter values manually." };
+    if (!Number.isFinite(grams) || grams <= 0 || grams > 10000) return { status: "unmatched", uncertainty: "Portion amount outside supported range." };
+    const rank = portionUncertainty?.includes("no source-backed") ? "low" :
+      assumptions.length > (portionUncertainty ? 1 : 0) ? "medium" : match.confidence;
+    return { status: "candidate", sourceId: String(food.fdcId), description: food.description, grams,
+      per100g, nutrients: scale(per100g, grams), matchConfidence: rank,
+      portionUncertainty, uncertainty: [item.uncertainty, portionUncertainty,
+        normalize(food.description) !== normalize(query) ? `Check USDA match: ${food.description}` : null].filter(Boolean).join("; ") || null,
+      assumptions };
   } catch {
-    return { status: "unavailable", uncertainty: "Nutrition lookup unavailable; enter nutrients manually." };
+    return { status: "unavailable", uncertainty: "Nutrition lookup unavailable." };
   }
 }

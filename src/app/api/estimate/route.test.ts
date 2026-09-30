@@ -2,83 +2,94 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/auth/request-origin", () => ({ acceptsSameOriginMutation: () => true }));
-vi.mock("@/server/auth/session", () => ({ findSession: vi.fn().mockResolvedValue({ id: "owner" }) }));
+vi.mock("@/server/auth/session", () => ({ findSession: vi.fn().mockResolvedValue({ admin: { id: "owner" } }) }));
 vi.mock("@/server/nutrition/interpret", () => ({ interpretMeal: vi.fn() }));
+vi.mock("@/server/nutrition/recipe", () => ({ interpretRecipe: vi.fn() }));
 vi.mock("@/server/nutrition/indb", () => ({ lookupIndbFood: vi.fn() }));
 vi.mock("@/server/nutrition/usda", () => ({ lookupUsdaFood: vi.fn() }));
+vi.mock("@/server/nutrition/personal", () => ({ getCachedResolution: vi.fn(), getPortionPreference: vi.fn(), putCachedResolution: vi.fn() }));
 
 import { lookupIndbFood } from "@/server/nutrition/indb";
-import { interpretMeal } from "@/server/nutrition/interpret";
 import { lookupUsdaFood } from "@/server/nutrition/usda";
+import { interpretMeal } from "@/server/nutrition/interpret";
+import { interpretRecipe } from "@/server/nutrition/recipe";
+import { getCachedResolution, getPortionPreference, putCachedResolution } from "@/server/nutrition/personal";
+import { findSession } from "@/server/auth/session";
 import { POST } from "./route";
 
-const item = { name: "Roti", quantity: 2, unit: "roti", grams: null, uncertainty: "Check size" };
-const request = () => new NextRequest("http://localhost:3000/api/estimate", {
-  method: "POST", headers: { Origin: "http://localhost:3000", Cookie: "mealio_session=test" },
-  body: JSON.stringify({ description: "2 rotis" }),
+const request = (description: string) => new NextRequest("http://localhost:3000/api/estimate", {
+  method: "POST", headers: { Origin: "http://localhost:3000", Cookie: "mealio_session=test" }, body: JSON.stringify({ description }),
 });
+const per100g = { kcal: 50, protein: 1, carbs: 12, fat: .2, fiber: 2, sugar: 7 };
+const candidate = { status: "candidate" as const, sourceId: "123", description: "Apples, raw, with skin", grams: 182,
+  nutrients: { kcal: 91, protein: 1.82, carbs: 21.84, fat: .36, fiber: 3.64, sugar: 12.74 }, per100g,
+  uncertainty: "Estimated USDA medium serving; confirm weight.", portionUncertainty: "Estimated USDA medium serving; confirm weight.",
+  matchConfidence: "medium" as const, assumptions: ["Estimated USDA medium serving; confirm weight."] };
 
-describe("optional INDB estimate routing", () => {
+describe("integrated nutrition estimate", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [item] });
+    vi.resetAllMocks();
+    vi.mocked(findSession).mockResolvedValue({ admin: { id: "owner" } } as Awaited<ReturnType<typeof findSession>>);
+    vi.mocked(getCachedResolution).mockResolvedValue(null);
+    vi.mocked(getPortionPreference).mockResolvedValue(null);
+    vi.mocked(putCachedResolution).mockResolvedValue();
+    vi.mocked(lookupIndbFood).mockResolvedValue({ status: "unmatched", reason: "no_match", uncertainty: "No verified INDB dish." });
+    vi.mocked(lookupUsdaFood).mockResolvedValue(candidate);
   });
 
-  it("returns a visibly uncertain INDB candidate without contacting USDA", async () => {
-    vi.mocked(lookupIndbFood).mockResolvedValue({ status: "candidate", sourceId: "TEST001", grams: null,
-      nutrients: { kcal: 200, protein: 6, carbs: 32 }, uncertainty: "INDB reference recipe; serving size may differ." });
-    const response = await POST(request());
+  it.each(["apple", "banana", "2 eggs", "200g cooked rice", "1 glass milk", "medium orange", "bananna"])("resolves %s without an LLM", async (description) => {
+    const response = await POST(request(description));
     const result = await response.json();
     expect(response.status).toBe(200);
-    expect(result.items[0]).toMatchObject({ source: "indb", sourceId: "TEST001", grams: null,
-      kcal: 200, uncertainty: "INDB reference recipe; serving size may differ." });
-    expect(result.totals).toEqual({ kcal: 200, protein: 6, carbs: 32 });
+    expect(result.items[0]).toMatchObject({ source: "usda", fat: .36, matchConfidence: "medium" });
+    expect(interpretMeal).not.toHaveBeenCalled();
+    expect(interpretRecipe).not.toHaveBeenCalled();
+    expect(putCachedResolution).toHaveBeenCalled();
+  });
+
+  it("uses a cached source resolution and a manually corrected portion", async () => {
+    vi.mocked(getCachedResolution).mockResolvedValue({ name: "apple", quantity: 1, unit: "medium", grams: 182,
+      kcal: 91, protein: 1.82, carbs: 21.84, fat: .36, source: "usda", sourceId: "123", uncertainty: null, per100g });
+    vi.mocked(getPortionPreference).mockResolvedValue(200);
+    const result = await (await POST(request("medium apple"))).json();
+    expect(result.items[0]).toMatchObject({ grams: 200, kcal: 100, fat: .4, source: "usda" });
     expect(lookupUsdaFood).not.toHaveBeenCalled();
   });
 
-  it("retains the USDA flow when INDB has no confident match", async () => {
-    vi.mocked(lookupIndbFood).mockResolvedValue({ status: "unmatched", reason: "no_match", uncertainty: "No verified INDB dish and portion match." });
-    vi.mocked(lookupUsdaFood).mockResolvedValue({ status: "candidate", sourceId: "123",
-      description: "Roti", grams: 100, nutrients: { kcal: 170, protein: 4, carbs: 29 }, uncertainty: "Check portion" });
-    const response = await POST(request());
-    const result = await response.json();
-    expect(response.status).toBe(200);
-    expect(result.items[0]).toMatchObject({ source: "usda", sourceId: "123", grams: 100, kcal: 170 });
-    expect(lookupUsdaFood).toHaveBeenCalledWith(item);
+  it("sums verified ingredients in a recipe rather than accepting LLM macros", async () => {
+    vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [{ name: "vegetable biryani", quantity: .5, unit: "plate", grams: null, uncertainty: null }] });
+    vi.mocked(lookupUsdaFood).mockImplementation(async (item) => item.name === "cooked rice" || item.name === "oil"
+      ? { ...candidate, grams: item.grams ?? 100, nutrients: { ...candidate.nutrients, kcal: item.name === "oil" ? 90 : 130 } }
+      : { status: "unmatched", uncertainty: "No match" });
+    vi.mocked(interpretRecipe).mockResolvedValue({ ok: true, name: "vegetable biryani", grams: 110,
+      ingredients: [{ name: "cooked rice", grams: 100 }, { name: "oil", grams: 10 }],
+      assumptions: ["Assumed cooking oil"], uncertainty: "Hypothetical recipe" });
+    const result = await (await POST(request("half plate vegetable biryani"))).json();
+    expect(result.items[0]).toMatchObject({ source: "recipe_estimate", kcal: 220, recipeUncertainty: "Hypothetical recipe" });
+    expect(result.items[0].ingredients).toHaveLength(2);
   });
 
-  it("keeps an unknown dish on the manual path instead of inventing nutrients", async () => {
-    vi.mocked(lookupIndbFood).mockResolvedValue({ status: "unmatched", reason: "no_match", uncertainty: "No verified INDB dish and portion match." });
-    vi.mocked(lookupUsdaFood).mockResolvedValue({ status: "unmatched", uncertainty: "Portion weight unknown; enter nutrients manually." });
-    const response = await POST(request());
-    const result = await response.json();
-    expect(result.incomplete).toBe(true);
-    expect(result.totals).toBeNull();
-    expect(result.items[0]).toMatchObject({ source: "unmatched", sourceId: null,
-      kcal: null, protein: null, carbs: null });
-    expect(result.items[0].uncertainty).toContain("Check size");
-    expect(result.items[0].uncertainty).not.toContain("No verified INDB");
+  it.each(["paneer butter masala", "chilli paneer"])("keeps %s distinct and computes ingredient totals", async (dish) => {
+    vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [{ name: dish, quantity: 1, unit: "serving", grams: null, uncertainty: null }] });
+    vi.mocked(lookupUsdaFood).mockImplementation(async (item) => item.name === "paneer" || item.name === "oil"
+      ? { ...candidate, grams: item.grams ?? 100, nutrients: { ...candidate.nutrients,
+        kcal: item.name === "paneer" ? 140 : 60, fat: item.name === "paneer" ? 8 : 6 } }
+      : { status: "unmatched", uncertainty: "No match" });
+    vi.mocked(interpretRecipe).mockResolvedValue({ ok: true, name: dish, grams: 160,
+      ingredients: [{ name: "paneer", grams: 140 }, { name: "oil", grams: 20 }],
+      assumptions: ["Assumed 20 g cooking oil"], uncertainty: "Hypothetical recipe" });
+    const result = await (await POST(request(dish))).json();
+    expect(result.items[0]).toMatchObject({ name: dish, source: "recipe_estimate", kcal: 200, fat: 14, matchConfidence: "low" });
+    expect(result.items[0].assumptions).toContain("Assumed 20 g cooking oil");
   });
 
-  it("keeps a counted roti while requesting an explicit portion for paneer curry", async () => {
-    const roti = { ...item, name: "roti", quantity: 3, unit: null, uncertainty: null };
-    const curry = { ...item, name: "paneer curry", quantity: null, unit: null, uncertainty: null };
-    vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [roti, curry] });
-    vi.mocked(lookupIndbFood).mockImplementation(async (food) => food.name === "roti"
-      ? { status: "candidate", sourceId: "TEST001", grams: null,
-          nutrients: { kcal: 300, protein: 9, carbs: 48 }, uncertainty: "INDB reference serving; confirm portion." }
-      : { status: "unmatched", reason: "portion_missing",
-          uncertainty: 'Enter a measured weight in grams or an explicit count (e.g. "1 bowl paneer curry"), then estimate again.' });
-    vi.mocked(lookupUsdaFood).mockResolvedValue({ status: "unmatched", uncertainty: "Portion weight unknown; enter nutrients manually." });
-    const response = await POST(request());
-    const result = await response.json();
-    expect(response.status).toBe(200);
-    expect(result.items[0]).toMatchObject({ source: "indb", kcal: 300 });
-    expect(result.items[1]).toMatchObject({ source: "unmatched", kcal: null, protein: null, carbs: null });
-    expect(result.items[1].uncertainty).toContain("1 bowl paneer curry");
-    expect(result.items[1].uncertainty).toContain("enter nutrients manually");
+  it("leaves incomplete estimates visibly incomplete when providers or recipe fail", async () => {
+    vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [{ name: "unknown restaurant dish", quantity: 1, unit: "plate", grams: null, uncertainty: null }] });
+    vi.mocked(lookupUsdaFood).mockResolvedValue({ status: "unavailable", uncertainty: "Provider unavailable" });
+    vi.mocked(interpretRecipe).mockResolvedValue({ ok: false, reason: "invalid_response" });
+    const result = await (await POST(request("unknown restaurant dish"))).json();
     expect(result.incomplete).toBe(true);
     expect(result.totals).toBeNull();
-    expect(lookupUsdaFood).toHaveBeenCalledTimes(1);
+    expect(result.items[0].source).toBe("unmatched");
   });
 });
