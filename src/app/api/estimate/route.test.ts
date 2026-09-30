@@ -83,6 +83,21 @@ describe("integrated nutrition estimate", () => {
     expect(result.items[0].assumptions).toContain("Assumed 20 g cooking oil");
   });
 
+  it("reuses an owner-confirmed recipe serving and recalculates each ingredient", async () => {
+    vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [{ name: "biryani", quantity: .5, unit: "plate", grams: null, uncertainty: null }] });
+    vi.mocked(getPortionPreference).mockImplementation(async (_adminId, item) => item.name === "biryani" ? 640 : null);
+    vi.mocked(lookupUsdaFood).mockImplementation(async (item) => item.name === "biryani"
+      ? { status: "unmatched", uncertainty: "No exact source" }
+      : { ...candidate, grams: item.grams ?? 100, nutrients: { ...candidate.nutrients, kcal: Math.round(item.grams ?? 100) } });
+    vi.mocked(interpretRecipe).mockResolvedValue({ ok: true, name: "biryani", grams: 250,
+      ingredients: [{ name: "cooked rice", grams: 200 }, { name: "vegetable oil", grams: 50 }],
+      assumptions: ["Assumed cooking oil"], uncertainty: "Hypothetical recipe" });
+    const result = await (await POST(request("half plate biryani"))).json();
+    expect(result.items[0]).toMatchObject({ source: "recipe_estimate", grams: 320, kcal: 320 });
+    expect(result.items[0].ingredients.map((ingredient: { grams: number }) => ingredient.grams)).toEqual([256, 64]);
+    expect(result.items[0].portionUncertainty).toContain("your saved 640 g per plate");
+  });
+
   it("leaves incomplete estimates visibly incomplete when providers or recipe fail", async () => {
     vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [{ name: "unknown restaurant dish", quantity: 1, unit: "plate", grams: null, uncertainty: null }] });
     vi.mocked(lookupUsdaFood).mockResolvedValue({ status: "unavailable", uncertainty: "Provider unavailable" });
@@ -91,5 +106,16 @@ describe("integrated nutrition estimate", () => {
     expect(result.incomplete).toBe(true);
     expect(result.totals).toBeNull();
     expect(result.items[0].source).toBe("unmatched");
+  });
+
+  it("retains a confirmed portion without inventing macros when a recipe provider fails", async () => {
+    vi.mocked(interpretMeal).mockResolvedValue({ ok: true, items: [{ name: "biryani", quantity: .5, unit: "plate", grams: null, uncertainty: null }] });
+    vi.mocked(lookupUsdaFood).mockResolvedValue({ status: "unavailable", uncertainty: "Provider unavailable" });
+    vi.mocked(interpretRecipe).mockResolvedValue({ ok: false, reason: "invalid_response" });
+    vi.mocked(getPortionPreference).mockResolvedValue(640);
+    const result = await (await POST(request("half plate biryani"))).json();
+    expect(result.items[0]).toMatchObject({ source: "unmatched", grams: 320, kcal: null });
+    expect(result.items[0].portionUncertainty).toContain("your saved 640 g per plate");
+    expect(result.totals).toBeNull();
   });
 });

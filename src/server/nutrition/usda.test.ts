@@ -79,7 +79,7 @@ describe("USDA review candidates", () => {
   it("uses USDA's large whole-egg portion as a labeled assumption for one egg", async () => {
     const fetchImpl = vi.fn().mockResolvedValueOnce(response([egg]))
       .mockResolvedValueOnce(new Response(JSON.stringify({ description: egg.description, foodPortions: [
-        { amount: 1, gramWeight: 243, modifier: "cup" },
+        { amount: 1, gramWeight: 243, modifier: "cup (4.86 large eggs)" },
         { amount: 1, gramWeight: 50, modifier: "large" },
       ] })));
     const result = await lookupUsdaFood({ name: "egg", quantity: 1, unit: null, grams: null, uncertainty: null }, { apiKey: testApiKey, fetchImpl });
@@ -92,6 +92,23 @@ describe("USDA review candidates", () => {
     }
     expect(JSON.parse((fetchImpl.mock.calls[0][1] as RequestInit).body as string).query).toBe("Egg, whole, raw, fresh");
     expect(fetchImpl.mock.calls[1][0]).toContain("/food/171287");
+  });
+
+  it("does not serve raw onion as branded onion rings, tomato as soup or water as a plant", async () => {
+    for (const [name, bad] of [["onion", "DENNY'S, onion rings"], ["tomato", "CAMPBELL'S, Tomato Soup, condensed"],
+      ["water", "Water convolvulus, raw"]]) {
+      const fetchImpl = vi.fn(async () => response([{ ...food, description: bad }]));
+      const result = await lookupUsdaFood({ name, quantity: null, unit: "g", grams: 100, uncertainty: null }, { apiKey: testApiKey, fetchImpl });
+      expect(result.status).toBe("unmatched");
+    }
+  });
+  it("maps green bell pepper only to a raw sweet green pepper, not a hot pepper", async () => {
+    const item = { name: "green bell pepper", quantity: null, unit: "g", grams: 60, uncertainty: null };
+    const sweet = { ...food, description: "Peppers, sweet, green, raw" };
+    const hot = { ...food, fdcId: 124, description: "Peppers, hot chili, green, raw" };
+    const found = await lookupUsdaFood(item, { apiKey: testApiKey, fetchImpl: vi.fn(async () => response([hot, sweet])) });
+    expect(found).toMatchObject({ status: "candidate", sourceId: "123" });
+    if (found.status === "candidate") expect(found.assumptions.join(" ")).toContain("sweet green pepper");
   });
 
   it("scales an edible whole-mango portion and preserves USDA provenance", async () => {

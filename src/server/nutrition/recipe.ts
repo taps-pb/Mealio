@@ -35,10 +35,17 @@ export async function interpretRecipe(description: string, options: { fetchImpl?
     const parsed = recipe.safeParse(value);
     if (!parsed.success) return { ok: false, reason: "invalid_response" };
     const sum = parsed.data.ingredients.reduce((total, entry) => total + entry.grams, 0);
-    if (sum > 10000 || parsed.data.grams !== null && Math.abs(sum - parsed.data.grams) > parsed.data.grams * .15)
+    const stated = parsed.data.grams;
+    const deviation = stated === null ? 0 : Math.abs(sum - stated) / stated;
+    if (sum > 10000 || deviation > .3)
       return { ok: false, reason: "invalid_response" };
-    return { ok: true, name: parsed.data.name, grams: parsed.data.grams ?? Math.round(sum * 100) / 100,
-      ingredients: parsed.data.ingredients, assumptions: parsed.data.assumptions,
+    const grams = stated ?? Math.round(sum * 100) / 100;
+    const rescaled = stated !== null && deviation > .05;
+    const ingredients = rescaled ? parsed.data.ingredients.map((entry) => ({ ...entry,
+      grams: Math.max(.01, Math.round(entry.grams * grams / sum * 100) / 100) })) : parsed.data.ingredients;
+    const note = "Ingredient weights did not add up to the stated serving; scaled to the estimated serving weight. Confirm both.";
+    return { ok: true, name: parsed.data.name, grams, ingredients,
+      assumptions: rescaled ? [...parsed.data.assumptions.slice(0, 11), note] : parsed.data.assumptions,
       uncertainty: "Hypothetical recipe and portion inferred from your description; ingredients and cooking oil may differ." };
   } catch { return { ok: false, reason: "invalid_response" }; }
 }

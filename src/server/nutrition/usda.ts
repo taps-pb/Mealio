@@ -14,12 +14,16 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 const queryHint: Record<string, string> = { apple: "Apples, raw, with skin", banana: "Bananas, raw",
   egg: "Egg, whole, raw, fresh", orange: "Oranges, raw, all commercial varieties",
-  milk: "Milk, whole, 3.25% milkfat", mango: "Mangos, raw", "cooked rice": "Rice, white, long-grain, regular, enriched, cooked" };
+  milk: "Milk, whole, 3.25% milkfat", mango: "Mangos, raw", "cooked rice": "Rice, white, long-grain, regular, enriched, cooked",
+  onion: "Onions, raw", tomato: "Tomatoes, red, ripe, raw, year round average", water: "Water, tap, drinking",
+  cashews: "Nuts, cashew nuts, raw", "green bell pepper": "Peppers, sweet, green, raw" };
 const roots: Record<string, string> = { apple: "apple", apples: "apple", banana: "banana", bananas: "banana",
   egg: "egg", eggs: "egg", orange: "orange", oranges: "orange", mango: "mango", mangos: "mango",
-  milk: "milk", rice: "rice" };
+  milk: "milk", rice: "rice", onion: "onion", onions: "onion", tomato: "tomato", tomatoes: "tomato",
+  cashew: "cashew", cashews: "cashew", pepper: "pepper", peppers: "pepper" };
 const unsafeExtras = new Set(["fried", "grilled", "pie", "juice", "sauce", "syrup", "dried", "powder", "canned", "breaded",
-  "scrambled", "white", "yolk", "sweetened", "sugar", "candy", "butter", "flavored", "flavoured", "baby"]);
+  "scrambled", "white", "yolk", "sweetened", "sugar", "candy", "butter", "flavored", "flavoured", "baby",
+  "rings", "soup", "condensed", "convolvulus", "dehydrated", "paste", "ketchup"]);
 
 function parseKeyFile(raw: string): string | null {
   const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -41,8 +45,9 @@ function suitable(name: string, description: string): { rank: number; confidence
   const qt = q.split(" "), dt = d.split(" ");
   const core = roots[qt.at(-1) ?? ""] ?? qt.at(-1);
   if (!core || !dt.some((token) => (roots[token] ?? token) === core)) return null;
-  const known = ["apple", "banana", "egg", "orange", "mango", "milk", "rice"].includes(core);
-  if (qt.some((token) => token !== core && !dt.includes(token) &&
+  const known = ["apple", "banana", "egg", "orange", "mango", "milk", "rice", "onion", "tomato", "water", "cashew", "pepper"].includes(core);
+  if (qt.some((token) => (roots[token] ?? token) !== core && !dt.includes(token) &&
+    !(q === "green bell pepper" && token === "bell" && dt.includes("sweet")) &&
     !(token === "boiled" && core === "rice" && dt.includes("cooked")))) return null;
   if (dt.some((token) => unsafeExtras.has(token) && !qt.includes(token) &&
     !(core === "rice" && token === "white") && !(core === "milk" && token === "whole"))) return null;
@@ -50,6 +55,9 @@ function suitable(name: string, description: string): { rank: number; confidence
   if (core === "egg" && (!dt.includes("whole") || !dt.includes("raw"))) return null;
   if (["apple", "banana", "orange", "mango"].includes(core) && !dt.includes("raw")) return null;
   if (core === "milk" && (!dt.includes("whole") || dt.includes("skim"))) return null;
+  if (["onion", "tomato", "cashew"].includes(core) && !dt.includes("raw")) return null;
+  if (q === "green bell pepper" && (!dt.includes("sweet") || !dt.includes("green") || !dt.includes("raw") || dt.includes("hot"))) return null;
+  if (core === "water" && !/^(?:beverages )?water (?:tap|bottled|purified|municipal|plain)\b/.test(d)) return null;
   if (!known && qt.some((token) => !dt.includes(token))) return null;
   const hint = queryHint[q];
   const rank = (hint && normalize(hint) === d ? 10 : 0) + (d === q ? 5 : 0) + qt.filter((token) => dt.includes(token)).length * 2 - dt.length * .03;
@@ -97,7 +105,7 @@ export async function lookupUsdaFood(item: InterpretedItem, options: { fetchImpl
       const candidate = food as { description: string; fdcId: number; foodNutrients?: unknown };
       const match = suitable(canonical, candidate.description);
       const per100g = parseNutrients(candidate);
-      return match && per100g ? [{ food: candidate, match, per100g }] : [];
+      return match && per100g && !(canonical === "water" && per100g.kcal !== 0) ? [{ food: candidate, match, per100g }] : [];
     }).sort((a, b) => b.match.rank - a.match.rank);
     if (!candidates.length) return { status: "unmatched", uncertainty: "No sufficiently matching USDA food with complete nutrients." };
     const { food, match, per100g } = candidates[0];
@@ -107,6 +115,7 @@ export async function lookupUsdaFood(item: InterpretedItem, options: { fetchImpl
     if (canonical === "egg") assumptions.push("Whole raw egg nutrient reference; cooking or added fat changes values.");
     if (canonical === "milk") assumptions.push("Whole milk nutrient reference; other fat levels differ.");
     if (canonical === "cooked rice") assumptions.push("White cooked rice nutrient reference; variety and added oil differ.");
+    if (canonical === "green bell pepper") assumptions.push("Bell pepper matched to USDA sweet green pepper; preparation may differ.");
     if (grams === null) {
       const units = ["small", "medium", "large"].includes(normalize(item.unit ?? "")) ? normalize(item.unit ?? "") :
         name === "egg" ? "large" : ["apple", "banana", "orange"].includes(name) ? "medium" :
@@ -121,7 +130,7 @@ export async function lookupUsdaFood(item: InterpretedItem, options: { fetchImpl
             "foodPortions" in data && Array.isArray(data.foodPortions)) {
           const ref = data.foodPortions.find((portion: { amount?: number; modifier?: string; gramWeight?: number }) =>
             portion?.amount === 1 && typeof portion.modifier === "string" && !!units &&
-            normalize(portion.modifier).split(" ").includes(units) && typeof portion.gramWeight === "number" &&
+            new RegExp(`^(?:1 )?${units}(?: |$)`).test(normalize(portion.modifier)) && typeof portion.gramWeight === "number" &&
             Number.isFinite(portion.gramWeight) && portion.gramWeight >= 5 && portion.gramWeight <= 1000);
           if (ref) {
             grams = round2(ref.gramWeight * (item.quantity ?? 1));

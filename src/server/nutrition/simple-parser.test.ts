@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseSimpleMeal } from "./simple-parser";
 
 describe("common-food parser", () => {
-  it.each([["apple", "apple", 1, null], ["bananna", "banana", 1, null], ["2 eggs", "egg", 2, null],
+  it.each([["apple", "apple", 1, null], ["aplpe", "apple", 1, null], ["bananna", "banana", 1, null], ["2 eggs", "egg", 2, null],
     ["200g cooked rice", "cooked rice", null, 200], ["1 glass milk", "milk", 1, null],
     ["medium ornage", "orange", 1, null]] as const)("parses %s", (input, name, quantity, grams) => {
     expect(parseSimpleMeal(input)?.[0]).toMatchObject({ name, quantity, grams });

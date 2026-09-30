@@ -21,6 +21,16 @@ describe("structured recipe interpretation", () => {
     const invalid = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: "not JSON" } }] })));
     expect(await interpretRecipe("biryani", { apiKey: "test", fetchImpl: invalid })).toEqual({ ok: false, reason: "invalid_response" });
   });
+  it("labels and reconciles a modest model ingredient-weight inconsistency", async () => {
+    const data = { name: "vegetable biryani", grams: 250,
+      ingredients: [{ name: "cooked rice", grams: 230 }, { name: "oil", grams: 62 }], assumptions: ["Oil quantity unknown"] };
+    const result = await interpretRecipe("half plate vegetable biryani", { apiKey: "test", fetchImpl: fetchOf(data) as unknown as typeof fetch });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.ingredients.reduce((sum, item) => sum + item.grams, 0)).toBeCloseTo(250, 1);
+      expect(result.assumptions.join(" ")).toContain("did not add up");
+    }
+  });
   it("returns gracefully on provider failure", async () => {
     const failed = vi.fn(async () => { throw new Error("private detail"); });
     expect((await interpretRecipe("biryani", { apiKey: "test", fetchImpl: failed })).ok).toBe(false);

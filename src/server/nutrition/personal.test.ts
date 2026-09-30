@@ -26,6 +26,7 @@ describe("private nutrition keys", () => {
     expect(resolutionKey(base)).not.toBe(resolutionKey({ ...base, quantity: 2 }));
     expect(resolutionKey(base)).not.toBe(resolutionKey({ ...base, grams: 182 }));
     expect(preferenceKey(base)).toEqual({ foodKey: "apple", unit: "medium" });
+    expect(resolutionKey(base)).toContain('"v2"');
   });
   it("only caches validated source-backed matches with expiry; never manual or uncertain low-confidence results", async () => {
     await putCachedResolution("owner", item, snapshot);

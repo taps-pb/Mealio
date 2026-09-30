@@ -67,11 +67,19 @@ async function tryRecipe(adminId: string, item: InterpretedItem): Promise<MealIt
   const prompt = [item.quantity, item.unit, item.name].filter((part) => part !== null).join(" ");
   const plan = await interpretRecipe(prompt);
   if (!plan.ok) return null;
+  const savedWeight = await getPortionPreference(adminId, item);
+  const correctedWeight = savedWeight === null ? null : round2(savedWeight * (item.quantity ?? 1));
+  const grams = correctedWeight !== null && correctedWeight > 0 && correctedWeight <= 10000 ? correctedWeight : plan.grams;
+  const ratio = grams / plan.grams;
+  const portionNote = grams !== plan.grams
+    ? `Using your saved ${savedWeight} g per ${item.unit ?? "item"} portion; recipe ingredients scaled to ${grams} g. Confirm this serving.`
+    : `Estimated recipe portion ${grams} g; check the serving and ingredient amounts.`;
   const ingredients: NonNullable<MealItemSnapshot["ingredients"]> = [];
   for (let index = 0; index < plan.ingredients.length; index += 3) {
     const batch = await Promise.all(plan.ingredients.slice(index, index + 3).map(async (entry) => {
-      const resolved = await resolveItem(adminId, { name: entry.name, quantity: null, unit: "g", grams: entry.grams, uncertainty: null });
-      return { name: entry.name, grams: entry.grams, kcal: resolved.kcal, protein: resolved.protein, carbs: resolved.carbs,
+      const ingredientGrams = Math.max(.01, round2(entry.grams * ratio));
+      const resolved = await resolveItem(adminId, { name: entry.name, quantity: null, unit: "g", grams: ingredientGrams, uncertainty: null });
+      return { name: entry.name, grams: ingredientGrams, kcal: resolved.kcal, protein: resolved.protein, carbs: resolved.carbs,
         fat: resolved.fat ?? null, source: resolved.source === "recipe_estimate" ? "unmatched" as const : resolved.source,
         sourceId: resolved.sourceId, uncertainty: resolved.uncertainty };
     }));
@@ -82,12 +90,13 @@ async function tryRecipe(adminId: string, item: InterpretedItem): Promise<MealIt
     round2(ingredients.reduce((sum, entry) => sum + (select(entry) ?? 0), 0)) : null;
   const fat = complete && ingredients.every((entry) => entry.fat !== null) ? total((entry) => entry.fat) : null;
   const assumptions = [plan.name.toLowerCase() === item.name.toLowerCase() ? null : `Interpreted recipe as ${plan.name}.`,
-    ...plan.assumptions].filter((entry): entry is string => entry !== null).slice(0, 12);
+    ...plan.assumptions, portionNote].filter((entry): entry is string => entry !== null).slice(0, 12);
   const uncertainty = [item.uncertainty, plan.uncertainty, ...assumptions].filter(Boolean).join("; ").slice(0, 500);
-  return { name: item.name, quantity: item.quantity ?? 1, unit: item.unit, grams: plan.grams,
+  return { name: item.name, quantity: item.quantity ?? 1, unit: item.unit, grams,
     kcal: total((entry) => entry.kcal), protein: total((entry) => entry.protein), carbs: total((entry) => entry.carbs),
     fat, fiber: null, sugar: null, source: "recipe_estimate", sourceId: null, uncertainty,
-    recipeUncertainty: plan.uncertainty, matchConfidence: "low", assumptions,
+    recipeUncertainty: plan.uncertainty, portionUncertainty: portionNote,
+    matchConfidence: "low", assumptions,
     ingredients };
 }
 
@@ -114,7 +123,14 @@ export async function POST(request: NextRequest) {
     items.push(...await Promise.all(batch.map(async (item) => {
       const result = await resolveItem(auth.admin.id, item);
       if (result.source !== "unmatched" || simple) return result;
-      return await tryRecipe(auth.admin.id, item) ?? result;
+      const recipe = await tryRecipe(auth.admin.id, item);
+      if (recipe) return recipe;
+      const savedWeight = await getPortionPreference(auth.admin.id, item);
+      const grams = savedWeight === null ? null : round2(savedWeight * (item.quantity ?? 1));
+      if (grams === null || grams <= 0 || grams > 10000) return result;
+      const note = `Using your saved ${savedWeight} g per ${item.unit ?? "item"} portion; nutrients still need review.`;
+      return { ...result, quantity: item.quantity ?? 1, grams, portionUncertainty: note, assumptions: [note],
+        uncertainty: [result.uncertainty, note].filter(Boolean).join("; ").slice(0, 500) };
     })));
   }
   const complete = items.every((item) => item.kcal !== null && item.protein !== null && item.carbs !== null);

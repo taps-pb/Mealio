@@ -139,6 +139,23 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
               portionUncertainty: note, uncertainty: [...remaining.filter((entry) => entry !== note), note].join("; ").slice(0, 500),
               assumptions: [...(item.assumptions ?? []).filter((entry) => entry !== item.portionUncertainty), note].slice(0, 12) };
           }
+          if (grams !== null && grams !== undefined && grams > 0 && item.source === "recipe_estimate" &&
+              item.grams !== null && item.grams > 0 && item.ingredients?.length) {
+            const ratio = grams / item.grams;
+            const ingredients = item.ingredients.map((entry) => ({ ...entry,
+              grams: Math.max(.01, round2(entry.grams * ratio)),
+              kcal: entry.kcal === null ? null : round2(entry.kcal * ratio),
+              protein: entry.protein === null ? null : round2(entry.protein * ratio),
+              carbs: entry.carbs === null ? null : round2(entry.carbs * ratio),
+              fat: entry.fat === null ? null : round2(entry.fat * ratio),
+            }));
+            const scale = (value: number | null | undefined) => value == null ? null : round2(value * ratio);
+            const note = "Recipe portion corrected by you; ingredient amounts and resolved nutrients rescaled. Confirm recipe assumptions.";
+            return { ...item, ...patch, quantity: item.quantity ?? 1, ingredients, portionEdited: true,
+              kcal: scale(item.kcal), protein: scale(item.protein), carbs: scale(item.carbs), fat: scale(item.fat),
+              portionUncertainty: note, uncertainty: [item.recipeUncertainty, note].filter(Boolean).join("; ").slice(0, 500),
+              assumptions: [...(item.assumptions ?? []).filter((entry) => entry !== item.portionUncertainty), note].slice(0, 12) };
+          }
           return { ...item, ...patch, quantity: item.quantity ?? 1, portionEdited: grams !== null && grams !== undefined };
         }
         if ("name" in patch || "quantity" in patch || "unit" in patch || "kcal" in patch ||

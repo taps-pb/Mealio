@@ -2,7 +2,7 @@ import type { InterpretedItem } from "./interpret";
 
 /** Strict local parsing for ordinary ingredients; complex dishes use the interpreter. */
 const aliases: Record<string, string> = {
-  apple: "apple", apples: "apple", appel: "apple", aple: "apple",
+  apple: "apple", apples: "apple", appel: "apple", aple: "apple", aplpe: "apple",
   banana: "banana", bananas: "banana", bananna: "banana",
   egg: "egg", eggs: "egg", egss: "egg",
   orange: "orange", oranges: "orange", ornage: "orange",
