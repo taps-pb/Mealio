@@ -11,6 +11,14 @@
 .heading h2, .editor h2 { margin: 0; font-size: 22px; line-height: 1.2; letter-spacing: -.02em; }
 .heading h3 { margin: 0; font-size: 15px; }
 .heading > span { font-size: 11px; color: var(--color-muted); text-align: right; overflow-wrap: anywhere; }
+.dayControls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: -4px 0 6px; }
+.dayControls button { min-width: 44px; min-height: 44px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 19px; cursor: pointer; }
+.dayControls button:hover:not(:disabled) { border-color: var(--color-arc-primary); }
+.dayControls button:disabled { opacity: .45; cursor: not-allowed; }
+.dayDate { flex: 1 1 112px; min-width: 112px; }
+.dayDate input { display: block; width: 100%; min-width: 0; min-height: 44px; padding: 8px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 16px; }
+.dayControls .backToday { margin-left: auto; font-size: 12px; font-weight: 600; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .macros { display: flex; gap: 8px; }
 .macros > div { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: var(--color-macro); }
 .macros small, .macros strong, .mealKcal small { display: block; }

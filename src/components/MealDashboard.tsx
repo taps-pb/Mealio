@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import HistoryPanel from "./HistoryPanel";
 import MealRing from "./MealRing";
+import { dayTitle, groupForDay, stepDayKey } from "./daySelection";
 import styles from "./MealDashboard.module.css";
 
 type Macro = { kcal: number; protein: number; carbs: number; fat?: number | null };
@@ -61,6 +62,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
   const [detailsFrom, setDetailsFrom] = useState<"today" | "history">("today");
   const [groups, setGroups] = useState<DayGroup[]>([]);
   const [todayKey, setTodayKey] = useState("");
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -86,6 +88,13 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     return () => cancelAnimationFrame(frame);
   }, [load]);
   useEffect(() => {
+    const refreshVisibleDay = () => {
+      if (document.visibilityState === "visible" && view === "today") void load();
+    };
+    document.addEventListener("visibilitychange", refreshVisibleDay);
+    return () => document.removeEventListener("visibilitychange", refreshVisibleDay);
+  }, [load, view]);
+  useEffect(() => {
     const frame = requestAnimationFrame(() => setDark(localStorage.getItem("mealio-theme") === "dark"));
     return () => cancelAnimationFrame(frame);
   }, []);
@@ -93,10 +102,13 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
 
-  const today = groups.find((group) => group.day === todayKey);
+  const displayedDayKey = selectedDayKey ?? todayKey;
+  const displayedDay = groupForDay(groups, displayedDayKey);
+  const displayedTitle = dayTitle(displayedDayKey, todayKey);
   const changeView = (next: View) => {
-    if (draft && !window.confirm("Discard your unsaved meal changes?")) return;
+    if (draft && !window.confirm("Discard your unsaved meal changes?")) return false;
     setDraft(null); setError(""); setView(next);
+    return true;
   };
   const startNew = () => {
     if (draft && !window.confirm("Discard your unsaved meal changes?")) return;
@@ -275,7 +287,26 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {!loaded && <p role="status">Loading meals…</p>}
 
-    {view === "today" && loaded && <><section className={styles.hero}><div className={styles.heading}><div><span className={styles.eyebrow}>CALORIES BY MEAL</span><h2>Today</h2></div><span>{todayKey} · {timezone}</span></div><MealRing meals={(today?.meals ?? []).map((meal) => ({ id: meal.id, name: meal.description, kcal: meal.kcal }))} /><div className={styles.macros}><div><span className={styles.macroIcon} aria-hidden="true">P</span><span><small>Protein</small><strong>{today?.totalProtein ?? 0} g</strong></span></div><div><span className={styles.macroIcon} aria-hidden="true">C</span><span><small>Carbs</small><strong>{today?.totalCarbs ?? 0} g</strong></span></div></div></section><section className={styles.list}><div className={styles.heading}><h2>Meals today</h2><span>{today?.meals.length ?? 0} logged</span></div>{today?.meals.length ? today.meals.map(renderMeal) : <p className={styles.empty}>No meals yet. Add one to start your day.</p>}</section></>}
+    {view === "today" && loaded && <><section className={styles.hero}><div className={styles.heading}><div><span className={styles.eyebrow}>CALORIES BY MEAL</span><h2 aria-live="polite">{displayedTitle}</h2></div><span>{displayedDayKey} · {timezone}</span></div>
+      {todayKey && <div className={styles.dayControls} role="group" aria-label="Choose day for calorie ring">
+        <button type="button" aria-label="Previous day" onClick={() => setSelectedDayKey(stepDayKey(displayedDayKey, -1))}>‹</button>
+        <label className={styles.dayDate}><span className={styles.visuallyHidden}>Show day in {timezone}</span>
+          <input type="date" value={displayedDayKey} max={todayKey} onChange={(event) => {
+            const value = event.target.value;
+            if (value && value <= todayKey) setSelectedDayKey(value === todayKey ? null : value);
+          }} />
+        </label>
+        <button type="button" aria-label="Next day" disabled={displayedDayKey >= todayKey} onClick={() => {
+          const next = stepDayKey(displayedDayKey, 1);
+          setSelectedDayKey(next >= todayKey ? null : next);
+        }}>›</button>
+        {displayedDayKey !== todayKey && <button type="button" className={styles.backToday} onClick={() => { setSelectedDayKey(null); void load(); }}>Today</button>}
+      </div>}
+      <MealRing meals={(displayedDay?.meals ?? []).map((meal) => ({ id: meal.id, name: meal.description, kcal: meal.kcal }))} />
+      <div className={styles.macros}><div><span className={styles.macroIcon} aria-hidden="true">P</span><span><small>Protein</small><strong>{displayedDay?.totalProtein ?? 0} g</strong></span></div><div><span className={styles.macroIcon} aria-hidden="true">C</span><span><small>Carbs</small><strong>{displayedDay?.totalCarbs ?? 0} g</strong></span></div></div></section>
+      <section className={styles.list}><div className={styles.heading}><h2>{displayedTitle === "Today" ? "Meals today" : displayedTitle === "Yesterday" ? "Meals yesterday" : "Meals on this day"}</h2><span>{displayedDay?.meals.length ?? 0} logged</span></div>
+        {displayedDay?.meals.length ? displayedDay.meals.map(renderMeal) : <p className={styles.empty}>{displayedTitle === "Today" ? "No meals yet. Add one to start your day." : "No meals logged on this day. Choose another date or open History."}</p>}
+      </section></>}
     {loaded && <div hidden={view !== "history"}><HistoryPanel groups={groups} timezone={timezone} onOpenDetails={(meal) => { setDetailId(meal.id); setDetailsFrom("history"); setDeleteId(null); setView("details"); }} /></div>}
 
     {view === "details" && loaded && <section className={styles.editor}>
@@ -305,6 +336,6 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
       <label>When eaten (device timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})<input type="datetime-local" value={draft.eatenAt} onChange={(event) => setDraft({ ...draft, eatenAt: event.target.value, timeChanged: true })} /></label><p>History is grouped in your account timezone: {timezone}.</p>
       <div className={styles.actions}>{view === "entry" ? <button type="button" className={styles.primary} onClick={() => { if (validated()) { setError(""); setView("review"); } }}>Review meal</button> : <><button type="button" className={styles.secondary} onClick={() => setView("entry")}>Back to edit</button><button type="button" className={styles.primary} disabled={busy} onClick={() => void save()}>Save meal</button></>}</div>
     </section>}
-    <nav className={styles.nav} aria-label="Main"><button type="button" aria-current={view === "today" ? "page" : undefined} onClick={() => changeView("today")}>Today</button><button type="button" className={styles.add} onClick={startNew} aria-label="Add meal">+</button><button type="button" aria-current={view === "history" ? "page" : undefined} onClick={() => changeView("history")}>History</button></nav>
+    <nav className={styles.nav} aria-label="Main"><button type="button" aria-current={view === "today" ? "page" : undefined} onClick={() => { if (changeView("today")) { setSelectedDayKey(null); void load(); } }}>Today</button><button type="button" className={styles.add} onClick={startNew} aria-label="Add meal">+</button><button type="button" aria-current={view === "history" ? "page" : undefined} onClick={() => changeView("history")}>History</button></nav>
   </main>;
 }
