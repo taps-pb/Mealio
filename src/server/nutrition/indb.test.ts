@@ -59,6 +59,10 @@ describe("private INDB lookup", () => {
       uncertainty: expect.stringContaining("confirm your portion"),
     });
   });
+  it("rejects impossible catalog macros rather than treating an exact dish name as sufficient", () => {
+    expect(matchIndbFood(item("Roti", 1, "roti", null), [{ ...roti, kcalPer100g: 1400 }]).status).toBe("unmatched");
+    expect(matchIndbFood(item("Roti", 1, "roti", null), [{ ...roti, proteinPer100g: 110 }]).status).toBe("unmatched");
+  });
 
   it("rejects ambiguous, unknown, mismatched, and implausible portions", () => {
     expect(matchIndbFood(item("roti", 1, "plate", null), [roti]).status).toBe("unmatched");

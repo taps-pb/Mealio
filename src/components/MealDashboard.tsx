@@ -10,12 +10,12 @@ type Snapshot = {
   name: string; quantity: number | null; unit: string | null; grams: number | null;
   kcal: number | null; protein: number | null; carbs: number | null;
   fat?: number | null; fiber?: number | null; sugar?: number | null;
-  source: "usda" | "indb" | "manual" | "unmatched" | "recipe_estimate"; sourceId: string | null; uncertainty: string | null;
+  source: "usda" | "indb" | "manual" | "unmatched" | "recipe_estimate" | "estimated"; sourceId: string | null; uncertainty: string | null;
   assumptions?: string[]; matchConfidence?: "high" | "medium" | "low"; portionUncertainty?: string | null;
   recipeUncertainty?: string | null; portionEdited?: boolean;
   per100g?: { kcal: number; protein: number; carbs: number; fat: number | null; fiber: number | null; sugar: number | null } | null;
   ingredients?: { name: string; grams: number; kcal: number | null; protein: number | null; carbs: number | null;
-    fat: number | null; source: "usda" | "indb" | "manual" | "unmatched"; sourceId: string | null; uncertainty: string | null }[];
+    fat: number | null; source: "usda" | "indb" | "manual" | "unmatched" | "estimated"; sourceId: string | null; uncertainty: string | null }[];
 };
 type Meal = Macro & { id: string; description: string; eatenAt: string; itemSnapshots: Snapshot[]; provenance: "manual" | "estimated" | "corrected" };
 type DayGroup = { day: string; meals: Meal[]; totalKcal: number; totalProtein: number; totalCarbs: number };
@@ -27,17 +27,32 @@ type View = "today" | "history" | "entry" | "review" | "details";
 const pad = (number: number) => String(number).padStart(2, "0");
 const localInput = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 const round2 = (number: number) => Math.round(number * 100) / 100;
-const sourceLabel = (source: Snapshot["source"]) => ({ usda: "USDA candidate", indb: "INDB reference recipe",
-  manual: "Your correction", unmatched: "Needs manual review", recipe_estimate: "Ingredient-based recipe estimate" })[source];
+const sourceLabel = (source: Snapshot["source"]) => ({ usda: "USDA reference", indb: "INDB reference recipe",
+  manual: "Your correction", unmatched: "No verified reference", recipe_estimate: "Ingredient-based recipe estimate",
+  estimated: "Approximate food estimate" })[source];
 const SnapshotInfo = ({ item }: { item: Snapshot }) => <div className={styles.snapshotInfo}>
-  <span className={styles.sourceBadge}>{sourceLabel(item.source)}{item.matchConfidence ? ` · ${item.matchConfidence} confidence` : ""}</span>
-  {item.grams !== null && <p>{item.portionUncertainty ? "Estimated portion" : "Portion"}: {item.quantity ?? 1} {item.unit ?? "serving"} (~{item.grams} g)</p>}
-  {item.uncertainty && <p className={styles.uncertain}>{item.uncertainty}</p>}
-  {(item.assumptions ?? []).filter((note) => note !== item.portionUncertainty && !item.uncertainty?.includes(note))
-    .map((note, index) => <p key={index} className={styles.assumption}>Assumption: {note}</p>)}
-  {item.ingredients?.length ? <details><summary>Estimated ingredients ({item.ingredients.length})</summary>
-    <ul>{item.ingredients.map((entry, index) => <li key={index}>{entry.name} · {entry.grams} g · {entry.kcal ?? "—"} kcal · {sourceLabel(entry.source)}{entry.uncertainty ? ` · ${entry.uncertainty}` : ""}</li>)}</ul>
-  </details> : null}
+  <div className={styles.estimateHeading}><strong>{item.name}</strong><span className={styles.sourceBadge}>
+    Confidence: {item.matchConfidence ? item.matchConfidence[0].toUpperCase() + item.matchConfidence.slice(1) : item.source === "manual" ? "Owner edited" : "Low"}
+  </span></div>
+  <p>{item.quantity ?? 1} {item.unit ?? "serving"}{item.grams !== null ? ` · ~${item.grams} g` : " · weight unknown"}</p>
+  <strong className={styles.estimateLabel}>{item.source === "manual" ? "Your nutrition" : "Estimated nutrition"}</strong>
+  <div className={styles.estimateMetrics}>
+    {([ ["Calories", item.kcal, "kcal"], ["Protein", item.protein, "g"], ["Carbs", item.carbs, "g"], ["Fat", item.fat, "g"] ] as const)
+      .map(([label, value, unit]) => <div key={label}><small>{label}</small><strong>{value == null ? "—" : `${item.source === "manual" ? "" : "~"}${value} ${unit}`}</strong></div>)}
+  </div>
+  <p className={styles.estimateNote}>{item.source === "recipe_estimate" || item.source === "estimated"
+    ? "Estimated from a typical serving or recipe. Actual ingredients, portion and cooking oil may vary."
+    : item.source === "manual" ? "Your corrections are saved as entered."
+    : item.source === "unmatched" ? "Nutrition is unavailable for this food; add details or enter it manually."
+    : "Based on a food reference. Confirm the portion and preparation."}</p>
+  {(item.uncertainty || item.assumptions?.length || item.ingredients?.length || item.sourceId) ?
+    <details><summary>Review ingredient breakdown</summary>
+      <p>{sourceLabel(item.source)}{item.sourceId ? ` · Reference ${item.sourceId}` : ""}</p>
+      {item.uncertainty && <p className={styles.uncertain}>{item.uncertainty}</p>}
+      {(item.assumptions ?? []).filter((note) => !item.uncertainty?.includes(note))
+        .map((note, index) => <p key={index} className={styles.assumption}>Assumption: {note}</p>)}
+      {!!item.ingredients?.length && <ul>{item.ingredients.map((entry, index) => <li key={index}>{entry.name} · {entry.grams} g · {entry.kcal ?? "—"} kcal · {sourceLabel(entry.source)}{entry.uncertainty ? ` · ${entry.uncertainty}` : ""}</li>)}</ul>}
+    </details> : null}
 </div>;
 
 export default function MealDashboard({ username, timezone, onLogout }: { username: string; timezone: string; onLogout: () => void }) {
@@ -273,10 +288,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
           <div><small>Carbs</small><strong>{detailMeal.carbs} g</strong></div>
           <div><small>Fat</small><strong>{detailMeal.fat == null ? "—" : `${detailMeal.fat} g`}</strong></div>
         </div><p>Saved nutrition snapshot · {detailMeal.provenance}. Re-estimation never changes saved values automatically.</p>
-        {detailMeal.itemSnapshots.map((item, index) => <div className={styles.item} key={index}><strong>{item.name}</strong>
-          <SnapshotInfo item={item} />{item.sourceId && <p>Reference: {item.sourceId}</p>}
-          <p>{item.kcal ?? "—"} kcal · P {item.protein ?? "—"} g · C {item.carbs ?? "—"} g · F {item.fat ?? "—"} g</p>
-        </div>)}
+        {detailMeal.itemSnapshots.map((item, index) => <div className={styles.item} key={index}><SnapshotInfo item={item} /></div>)}
         <div className={styles.actions}><button type="button" className={styles.secondary} onClick={() => startEdit(detailMeal)}>Edit meal</button><button type="button" className={styles.secondary} onClick={() => setDeleteId(detailMeal.id)}>Delete…</button></div>
         {deleteId === detailMeal.id && <div className={styles.confirm}><span>Delete {detailMeal.description}?</span><button type="button" disabled={busy} onClick={() => void remove(detailMeal.id)}>Yes, delete</button><button type="button" onClick={() => setDeleteId(null)}>Cancel</button></div>}
       </> : <p role="status">Meal not found. Return to history.</p>}
@@ -285,7 +297,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
 
     {(view === "entry" || view === "review") && draft && <section className={styles.editor}><span className={styles.eyebrow}>{draft.id ? "EDIT MEAL" : "NEW MEAL"}</span><h2>{view === "review" ? "Review before saving" : "What did you eat?"}</h2><p>Describe foods and portions, then review estimates or enter nutrition manually. Candidates may be uncertain; your corrections are saved only when you confirm.</p>
       {view === "entry" && <><label>Meal description<textarea rows={3} maxLength={500} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><button type="button" className={styles.secondary} disabled={busy || !draft.description.trim()} onClick={() => void estimate()}>Estimate from description (optional)</button></>}
-      {!!draft.items.length && <div className={styles.items}><h3>Food and portion assumptions</h3>{draft.items.map((item, index) => <fieldset key={index} className={styles.item}><legend>Item {index + 1} · {item.name}</legend><SnapshotInfo item={item} />
+      {!!draft.items.length && <div className={styles.items}><h3>Review estimates and adjust</h3>{draft.items.map((item, index) => <fieldset key={index} className={styles.item}><legend>Food {index + 1}</legend><SnapshotInfo item={item} />
         <label>Food name<input value={item.name} onChange={(event) => updateItem(index, { name: event.target.value })} /></label><div className={styles.fields}><label>Quantity<input type="number" min="0.01" step="any" value={item.quantity ?? ""} onChange={(event) => updateItem(index, { quantity: event.target.value ? Number(event.target.value) : null })} /></label><label>Unit<input value={item.unit ?? ""} onChange={(event) => updateItem(index, { unit: event.target.value || null })} /></label><label>Grams<input type="number" min="0.01" step="any" value={item.grams ?? ""} onChange={(event) => updateItem(index, { grams: event.target.value ? Number(event.target.value) : null })} /></label></div>
         <div className={styles.fields}>{(["kcal", "protein", "carbs", "fat"] as const).map((field) => <label key={field}>{field === "kcal" ? "Calories" : `${field} (g)`}<input type="number" min="0" step="0.01" value={item[field] ?? ""} onChange={(event) => updateItem(index, { [field]: event.target.value === "" ? null : Number(event.target.value) })} /></label>)}</div>
       </fieldset>)}<button type="button" className={styles.secondary} onClick={useItemSums}>Use item sums for meal totals</button><p>Editing an item does not silently change the meal totals below.</p></div>}

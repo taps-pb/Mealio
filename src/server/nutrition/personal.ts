@@ -8,7 +8,7 @@ const normalize = (value: string) => value.normalize("NFKC").toLowerCase().trim(
 /** Context-specific: brand/preparation/sauce tokens remain in the complete name. */
 export function resolutionKey(item: Pick<InterpretedItem, "name" | "quantity" | "unit" | "grams">): string {
   // Bump when match/portion rules change: old cached candidates may be unsafe.
-  return JSON.stringify(["v2", normalize(item.name), item.quantity, normalize(item.unit ?? ""), item.grams]);
+  return JSON.stringify(["v3", normalize(item.name), item.quantity, normalize(item.unit ?? ""), item.grams]);
 }
 export function preferenceKey(item: Pick<InterpretedItem, "name" | "unit">) {
   return { foodKey: normalize(item.name), unit: normalize(item.unit ?? "") };

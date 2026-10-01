@@ -102,6 +102,69 @@ describe("USDA review candidates", () => {
       expect(result.status).toBe("unmatched");
     }
   });
+  it("never mistakes potato bread or sweet potato for an ordinary potato", async () => {
+    const plain = { name: "potato", quantity: null, unit: "g", grams: 100, uncertainty: null };
+    const potatoes = { ...food, description: "Potatoes, flesh and skin, raw" };
+    const wrong = [{ ...food, fdcId: 124, description: "Bread, potato" }, { ...food, fdcId: 125, description: "Sweet potato, raw" }];
+    const found = await lookupUsdaFood(plain, { apiKey: testApiKey, fetchImpl: vi.fn(async () => response([...wrong, potatoes])) });
+    expect(found).toMatchObject({ status: "candidate", sourceId: "123" });
+    const failed = await lookupUsdaFood(plain, { apiKey: testApiKey, fetchImpl: vi.fn(async () => response(wrong)) });
+    expect(failed.status).toBe("unmatched");
+    const boiled = await lookupUsdaFood({ ...plain, name: "boiled potato" }, { apiKey: testApiKey, fetchImpl: vi.fn(async () =>
+      response([{ ...food, description: "Sweet potato, cooked, boiled, without skin" },
+        { ...food, description: "Potatoes, boiled, cooked without skin, flesh, without salt", fdcId: 126 }])) });
+    expect(boiled).toMatchObject({ status: "candidate", sourceId: "126" });
+  });
+  it("rejects impossible per-100g nutrients instead of selecting the first lexical match", async () => {
+    const invalid = { ...food, description: "Potatoes, flesh and skin, raw", foodNutrients: [
+      { nutrientId: 1008, value: 1800 }, { nutrientId: 1003, value: 1 },
+      { nutrientId: 1005, value: 17 }, { nutrientId: 1004, value: 150 },
+    ] };
+    const result = await lookupUsdaFood({ name: "potato", quantity: null, unit: "g", grams: 100, uncertainty: null },
+      { apiKey: testApiKey, fetchImpl: vi.fn(async () => response([invalid])) });
+    expect(result.status).toBe("unmatched");
+  });
+  it("rejects food-name coincidences for poha, ice, dairy, and blended olive oil", async () => {
+    const itemFor = (name: string) => ({ name, grams: 100, quantity: null, unit: "g", uncertainty: null });
+    const search = (foods: unknown[]) => vi.fn(async () => response(foods));
+    for (const [name, wrong] of [
+      ["poha", "Groundcherries, (cape-gooseberries or poha), raw"],
+      ["ice", "Ice cream sandwich"],
+      ["whole milk", "Cheese, mozzarella, whole milk"],
+      ["plain yogurt", "SILK Plain soy yogurt"],
+      ["yogurt", "Tofu yogurt"],
+      ["olive oil", "Oil, corn, peanut, and olive"],
+    ]) {
+      const result = await lookupUsdaFood(itemFor(name), { apiKey: testApiKey,
+        fetchImpl: search([{ ...food, description: wrong }]) });
+      expect(result.status, `${name} must not select ${wrong}`).toBe("unmatched");
+    }
+    const milk = await lookupUsdaFood(itemFor("whole milk"), { apiKey: testApiKey, fetchImpl: search([
+      { ...food, description: "Cheese, mozzarella, whole milk" },
+      { ...food, fdcId: 200, description: "Milk, whole, 3.25% milkfat" },
+    ]) });
+    expect(milk).toMatchObject({ status: "candidate", sourceId: "200" });
+    const yogurt = await lookupUsdaFood(itemFor("plain yogurt"), { apiKey: testApiKey, fetchImpl: search([
+      { ...food, description: "SILK Plain soy yogurt" },
+      { ...food, fdcId: 201, description: "Yogurt, plain, whole milk" },
+    ]) });
+    expect(yogurt).toMatchObject({ status: "candidate", sourceId: "201" });
+  });
+  it("does not assume 100 g of unquantified cooking oil or cheese topping", async () => {
+    for (const name of ["oil", "ghee", "cheese"]) {
+      const result = await lookupUsdaFood({ name, quantity: null, unit: null, grams: null, uncertainty: null },
+        { apiKey: testApiKey, fetchImpl: vi.fn(async () => response([food])) });
+      expect(result.status).toBe("unmatched");
+    }
+  });
+  it("uses a labeled small-handful weight instead of defaulting almonds to 100 g", async () => {
+    const request = vi.fn(async () => response([{ ...food, description: "Nuts, almonds" }]));
+    const result = await lookupUsdaFood({ name: "almonds", quantity: 1, unit: "small handful", grams: null, uncertainty: null },
+      { apiKey: testApiKey, fetchImpl: request });
+    expect(result).toMatchObject({ status: "candidate", grams: 15, matchConfidence: "low" });
+    if (result.status === "candidate") expect(result.portionUncertainty).toContain("no source-backed portion");
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it("maps green bell pepper only to a raw sweet green pepper, not a hot pepper", async () => {
     const item = { name: "green bell pepper", quantity: null, unit: "g", grams: 60, uncertainty: null };
     const sweet = { ...food, description: "Peppers, sweet, green, raw" };

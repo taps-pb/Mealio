@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { indbCatalogs } from "../db/schema";
 import type { InterpretedItem } from "./interpret";
+import { inferredFat, plausibleMacros } from "./sanity";
 
 export type IndbRecord = {
   sourceId: string; name: string;
@@ -60,6 +61,9 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
   const matches = records.filter((record) => dishNames(record.name).includes(name));
   if (matches.length !== 1) return unmatched();
   const record = matches[0];
+  const fatPer100 = inferredFat(record.kcalPer100g, record.proteinPer100g, record.carbsPer100g, 100);
+  if (fatPer100 === null || !plausibleMacros({ kcal: record.kcalPer100g, protein: record.proteinPer100g,
+    carbs: record.carbsPer100g, fat: fatPer100 }, 100)) return unmatched();
   const per100g = { kcal: record.kcalPer100g, protein: record.proteinPer100g, carbs: record.carbsPer100g,
     fat: null, fiber: null, sugar: null } as const;
   const note = "INDB (Anuvaad Solutions, 2024.11) reference recipe; ingredients, preparation and serving size may differ from yours.";
@@ -84,7 +88,8 @@ export function matchIndbFood(item: InterpretedItem, records: IndbRecord[]): Ind
   const impliedGrams = record.servingKcal !== null && record.kcalPer100g > 0
     ? 100 * record.servingKcal / record.kcalPer100g : 0;
   const viableServing = record.servingKcal !== null && record.servingProtein !== null &&
-    record.servingCarbs !== null && impliedGrams >= 5 && impliedGrams <= 500;
+    record.servingCarbs !== null && impliedGrams >= 5 && impliedGrams <= 500 &&
+    inferredFat(record.servingKcal, record.servingProtein, record.servingCarbs, impliedGrams) !== null;
   if (item.quantity === null || !Number.isFinite(item.quantity) || item.quantity <= 0 || item.quantity > 100 ||
       !servingUnit || !usableUnit) {
     const suggestedUnit = burfiPiece ? "piece" : record.servingUnit;

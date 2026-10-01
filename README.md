@@ -32,7 +32,9 @@ For local file mode, set server-side `INDB_DATA_FILE` to the absolute path of th
 
 Vercel Production variables: `DATABASE_URL` (the **pooled** Neon URL), `FIREWORKS_API_KEY`, `USDA_API_KEY`, and `INDB_CATALOG_SOURCE=database`. Keep database credentials and API keys secret and do not give preview deployments access to the production database. `ADMIN_PASSWORD` is for the private one-time CLI only, not Vercel. Environment-variable changes require a redeployment; pushes to GitHub `main` automatically create production deployments. The public URL displays a login page, but meal APIs require owner authentication.
 
-Run `npm test`, `python3 -m unittest scripts/test_prepare_indb.py`, `npm run lint`, `npm run typecheck`, and `npm run build` before pushing. The latest local run passed **68 Vitest tests and 7 Python audit tests**, lint, typecheck and build. An installed pre-commit hook runs `tools/scan_staged_secrets.py` and blocks commits containing private dataset files or common credentials.
+Run `npm test`, `python3 -m unittest scripts/test_prepare_indb.py`, `npm run lint`, `npm run typecheck`, and `npm run build` before pushing. An installed pre-commit hook runs `tools/scan_staged_secrets.py` and blocks commits containing private dataset files or common credentials.
+
+For opt-in real-food QA, run `RUN_LIVE_FOOD_QA=1 npx vitest run scripts/qa-real-foods.test.ts`. This makes live USDA/Fireworks calls and writes a private, exclusive-create JSON report in `../worktree/`; it uses isolated mock authentication and **does not** use the owner database or private INDB catalog. It is not a substitute for checking the authenticated deployed site on a phone. Never commit the report or provider credentials.
 
 Before using the site for real history, arrange recurring offsite database backups and verify a restore; then complete login → estimate → correct → save → history → edit → delete and logout on a real phone, including ambiguous/missing portions, local-day boundaries, and accessibility. Do not treat a successful build or a single snapshot as those release checks.
 

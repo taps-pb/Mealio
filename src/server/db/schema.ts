@@ -43,7 +43,7 @@ export type MealItemSnapshot = {
   fat?: number | null;
   fiber?: number | null;
   sugar?: number | null;
-  source: "usda" | "indb" | "manual" | "unmatched" | "recipe_estimate";
+  source: "usda" | "indb" | "manual" | "unmatched" | "recipe_estimate" | "estimated";
   sourceId: string | null;
   uncertainty: string | null;
   assumptions?: string[];
@@ -53,7 +53,7 @@ export type MealItemSnapshot = {
   per100g?: { kcal: number; protein: number; carbs: number; fat: number | null; fiber: number | null; sugar: number | null } | null;
   portionEdited?: boolean;
   ingredients?: { name: string; grams: number; kcal: number | null; protein: number | null; carbs: number | null;
-    fat: number | null; source: "usda" | "indb" | "manual" | "unmatched"; sourceId: string | null; uncertainty: string | null }[];
+    fat: number | null; source: "usda" | "indb" | "manual" | "unmatched" | "estimated"; sourceId: string | null; uncertainty: string | null }[];
 };
 
 export const mealProvenance = pgEnum("meal_provenance", ["manual", "estimated", "corrected"]);

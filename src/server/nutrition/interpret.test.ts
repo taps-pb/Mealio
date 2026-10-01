@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { interpretMeal, INTERPRETER_MODEL } from "./interpret";
+import { combineDishModifiers, interpretMeal, INTERPRETER_MODEL, retainSizeModifiers } from "./interpret";
 
 const envelope = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
 const apiKey = ["unit", "test", "placeholder"].join("-");
@@ -31,5 +31,28 @@ describe("Fireworks meal interpretation", () => {
     expect(await interpretMeal("", { apiKey })).toEqual({ ok: false, reason: "invalid_input" });
     expect(await interpretMeal("x".repeat(501), { apiKey })).toEqual({ ok: false, reason: "invalid_input" });
     expect(await interpretMeal("eggs", { apiKey: "" })).toEqual({ ok: false, reason: "unavailable" });
+  });
+  it("keeps sandwich toppings, pasta cheese, and cooking oil in their dish without merging separate sides", () => {
+    const item = (name: string, quantity: number | null = null) => ({ name, quantity, unit: null, grams: null, uncertainty: null });
+    expect(combineDishModifiers("2 homemade aloo paratha with little oil", [item("aloo paratha", 2), item("oil")]))
+      .toMatchObject([{ name: "aloo paratha with little oil", quantity: 2 }]);
+    expect(combineDishModifiers("30cm paneer tikka subway with lettuce onion and 3 sauces",
+      [item("paneer tikka sub", 1), item("lettuce"), item("onion"), item("sauce 1", 1), item("sauce 2", 1), item("sauce 3", 1)]))
+      .toMatchObject([{ name: "paneer tikka sub with lettuce onion and 3 sauces" }]);
+    expect(combineDishModifiers("30cm paneer tikka subway with lettuce onion and 3 sauces",
+      [item("paneer tikka sub", 1), item("lettuce"), item("onion"), item("sauces", 3)]))
+      .toMatchObject([{ name: "paneer tikka sub with lettuce onion and 3 sauces" }]);
+    expect(combineDishModifiers("one plate homemade pasta with cheese", [item("homemade pasta", 1), item("cheese")]))
+      .toMatchObject([{ name: "homemade pasta with cheese" }]);
+    expect(combineDishModifiers("2 roti with dal", [item("roti", 2), item("dal")])).toHaveLength(2);
+    expect(combineDishModifiers("sandwich with fries", [item("sandwich"), item("fries")])).toHaveLength(2);
+    expect(combineDishModifiers("30cm paneer sub with lettuce and 3 sauces", [item("paneer sub")]))
+      .toMatchObject([{ name: "paneer sub with lettuce and 3 sauces" }]);
+  });
+  it("keeps the stated small side size when the model drops its adjective", () => {
+    const items = [{ name: "roti", quantity: 2, unit: "piece", grams: null, uncertainty: null },
+      { name: "sabzi", quantity: 1, unit: null, grams: null, uncertainty: null }];
+    expect(retainSizeModifiers("2 roti with little sabzi", items)[1].name).toBe("little sabzi");
+    expect(retainSizeModifiers("2 roti with sabzi", items)[1].name).toBe("sabzi");
   });
 });

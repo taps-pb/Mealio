@@ -31,6 +31,45 @@ describe("structured recipe interpretation", () => {
       expect(result.assumptions.join(" ")).toContain("did not add up");
     }
   });
+  it("does not scale flour or oil down when raw dough loses water during cooking", async () => {
+    const value = { name: "stuffed pan-fried flatbread", grams: 300,
+      ingredients: [{ name: "whole wheat flour, raw", grams: 100 }, { name: "cooked potato", grams: 130 },
+        { name: "ghee", grams: 30 }, { name: "water for dough", grams: 90 }],
+      assumptions: ["Dough loses moisture on the pan"] };
+    const result = await interpretRecipe("2 stuffed flatbreads", { apiKey: "test", fetchImpl: fetchOf(value) as unknown as typeof fetch });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.ingredients.find((ingredient) => ingredient.name === "ghee")?.grams).toBe(30);
+      expect(result.assumptions.join(" ")).toContain("moisture");
+    }
+  });
+  it("does not inflate dry grains and oil to account for absorbed water in a cooked bowl", async () => {
+    const value = { name: "cooked grain bowl", grams: 250, ingredients: [
+      { name: "flattened rice, dry", grams: 60 }, { name: "vegetables", grams: 70 },
+      { name: "vegetable oil", grams: 10 }, { name: "water", grams: 70 }],
+    assumptions: ["Some water is absorbed"] };
+    const result = await interpretRecipe("one medium bowl cooked grain", { apiKey: "test", fetchImpl: fetchOf(value) as unknown as typeof fetch });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.ingredients.find((entry) => entry.name === "vegetable oil")?.grams).toBe(10);
+      expect(result.ingredients.find((entry) => entry.name === "flattened rice, dry")?.grams).toBe(60);
+      expect(result.assumptions.join(" ")).toContain("water absorption");
+    }
+  });
+  it("reconciles an oversized raw-and-water ingredient list instead of discarding a plausible serving", async () => {
+    const value = { name: "stuffed pan-fried bread", grams: 320, ingredients: [
+      { name: "whole wheat flour, dry", grams: 120 }, { name: "potato, raw", grams: 150 },
+      { name: "ghee", grams: 30 }, { name: "water", grams: 100 }, { name: "onion", grams: 50 }],
+    assumptions: ["Water evaporates on the pan"] };
+    const result = await interpretRecipe("2 stuffed pan-fried breads", { apiKey: "test", fetchImpl: fetchOf(value) as unknown as typeof fetch });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.grams).toBe(320);
+      expect(result.ingredients.reduce((sum, entry) => sum + entry.grams, 0)).toBeCloseTo(320, 0);
+      expect(result.assumptions.join(" ")).toContain("scaling other ingredients");
+      expect(result.ingredients.find((entry) => entry.name === "whole wheat flour, dry")?.grams).toBeGreaterThan(80);
+    }
+  });
   it("returns gracefully on provider failure", async () => {
     const failed = vi.fn(async () => { throw new Error("private detail"); });
     expect((await interpretRecipe("biryani", { apiKey: "test", fetchImpl: failed })).ok).toBe(false);
