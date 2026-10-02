@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { formatCalories } from "@/lib/formatCalories";
 import { filterAndSortHistory, historyExportHref, historyTotals, type HistoryGroup, type HistoryMeal, type HistorySort } from "@/lib/history";
 import styles from "./HistoryPanel.module.css";
 
@@ -42,15 +43,15 @@ export default function HistoryPanel<M extends DisplayMeal>({ groups, timezone, 
     <div id={datesId} className={styles.datePanel} hidden={!showDates}><strong>Dates in {timezone}</strong><div className={styles.dateFields}><label className={styles.field}>From<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label><label className={styles.field}>Through<input type="date" value={through} onChange={(event) => setThrough(event.target.value)} /></label></div><button type="button" className={styles.secondary} onClick={() => { setFrom(""); setThrough(""); }}>Clear dates</button></div>
     {invalidRange && <p role="alert" className={styles.notice}>“From” must be on or before “Through”.</p>}
     {tooMany && <p role="alert" className={styles.notice}>Select a narrower range to export up to 3,000 meals at a time.</p>}
-    <div className={styles.summary} role="status" aria-live="polite"><strong>{totals.count} {totals.count === 1 ? "meal" : "meals"} · {totals.days} {totals.days === 1 ? "day" : "days"}</strong><span>{totals.kcal} kcal · P {totals.protein} g · C {totals.carbs} g</span><small>Totals reflect only matching meals.</small></div>
+    <div className={styles.summary} role="status" aria-live="polite"><strong>{totals.count} {totals.count === 1 ? "meal" : "meals"} · {totals.days} {totals.days === 1 ? "day" : "days"}</strong><span>{formatCalories(totals.kcal)} kcal · P {totals.protein} g · C {totals.carbs} g</span><small>Totals reflect only matching meals.</small></div>
     <div className={styles.actions}>{hasFilters && <button type="button" className={styles.secondary} onClick={() => { setSearch(""); setSort("new"); setFrom(""); setThrough(""); }}>Clear filters</button>}{totals.count > 0 && !invalidRange && !tooMany ? <a className={styles.export} href={historyExportHref(options)} download="Mealio-history.pdf">↓ Export shown meals · PDF</a> : <span className={styles.exportDisabled} aria-disabled="true">↓ Export shown meals · PDF</span>}</div>
     <p className={styles.privacy}>Private download · includes matching meals, source and uncertainty notes.</p>
     {visible.length ? <div className={styles.days}>{visible.map((group, index) => {
       const expanded = openDays[group.day] ?? index === 0;
       const contentsId = `${dayId}-${group.day}`;
       return <section className={styles.day} key={group.day}>
-        <h3><button type="button" className={styles.dayToggle} aria-expanded={expanded} aria-controls={contentsId} onClick={() => setOpenDays((current) => ({ ...current, [group.day]: !expanded }))}><span><strong>{labelDay(group.day)}</strong><small>{group.meals.length} {group.meals.length === 1 ? "meal" : "meals"} · {group.totalKcal} kcal shown</small></span><span className={styles.chevron} aria-hidden="true">{expanded ? "⌄" : "›"}</span></button></h3>
-        <div className={styles.dayBody} id={contentsId} hidden={!expanded}>{group.meals.map((meal) => <button type="button" className={styles.mealRow} key={meal.id} onClick={() => onOpenDetails(meal)}><span><strong>{meal.description}</strong><small>{timeFormatter.format(new Date(meal.eatenAt))} · P {meal.protein} g · C {meal.carbs} g</small>{meal.itemSnapshots.some((item) => !!item.uncertainty) && <small className={styles.uncertain}>Portion or recipe needs review</small>}</span><b>{meal.kcal} kcal</b></button>)}</div>
+        <h3><button type="button" className={styles.dayToggle} aria-expanded={expanded} aria-controls={contentsId} onClick={() => setOpenDays((current) => ({ ...current, [group.day]: !expanded }))}><span><strong>{labelDay(group.day)}</strong><small>{group.meals.length} {group.meals.length === 1 ? "meal" : "meals"} · {formatCalories(group.totalKcal)} kcal shown</small></span><span className={styles.chevron} aria-hidden="true">{expanded ? "⌄" : "›"}</span></button></h3>
+        <div className={styles.dayBody} id={contentsId} hidden={!expanded}>{group.meals.map((meal) => <button type="button" className={styles.mealRow} key={meal.id} onClick={() => onOpenDetails(meal)}><span><strong>{meal.description}</strong><small>{timeFormatter.format(new Date(meal.eatenAt))} · P {meal.protein} g · C {meal.carbs} g</small>{meal.itemSnapshots.some((item) => !!item.uncertainty) && <small className={styles.uncertain}>Portion or recipe needs review</small>}</span><b>{formatCalories(meal.kcal)} kcal</b></button>)}</div>
       </section>;
     })}</div> : <p className={styles.empty}>{groups.length ? "No matching meals. Clear a filter to see more." : "No meals logged yet."}</p>}
   </section>;

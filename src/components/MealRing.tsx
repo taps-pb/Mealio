@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { formatCalories } from "@/lib/formatCalories";
 import styles from "./MealRing.module.css";
 import { ringColorIndices } from "./ringColors";
 import { spreadRingMarkerAngles } from "./ringMarkerAngles";
@@ -63,6 +64,7 @@ export default function MealRing({ meals }: { meals: RingMeal[] }) {
 
   const positive = meals.filter((meal) => Number.isFinite(meal.kcal) && meal.kcal > 0);
   const total = positive.reduce((sum, meal) => sum + meal.kcal, 0);
+  const displayTotal = formatCalories(total);
   const colorSlots = ringColorIndices(positive.length);
   const parts = positive.map((meal, index) => {
     const start = positive.slice(0, index).reduce((distance, previous) => distance + previous.kcal / total * CIRC, 0);
@@ -97,14 +99,14 @@ export default function MealRing({ meals }: { meals: RingMeal[] }) {
   const from = active ? { x: active.x, y: active.y } : null;
   const color = active ? active.color : colors[0];
 
-  return <div className={styles.stage} ref={stage} aria-label={`Calories by meal, ${total} kcal total`}>
+  return <div className={styles.stage} ref={stage} aria-label={`Calories by meal, ${displayTotal} kcal total`}>
     <div className={styles.ring} style={{ width: ringSize, height: ringSize }}>
       <svg className={styles.art} viewBox="0 0 220 220" aria-hidden="true">
         <circle cx="110" cy="110" r="105" fill="none" stroke="var(--color-ring-guide)" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
         <circle cx="110" cy="110" r="88" fill="none" stroke="var(--color-ring-track)" strokeWidth="16" />
         <g transform="rotate(-90 110 110)">{parts.map((part) => <circle key={part.meal.id} cx="110" cy="110" r="88" fill="none" stroke={part.color} strokeWidth="16" strokeLinecap={part.dash > 24 ? "round" : "butt"} strokeDasharray={`${part.dash} ${CIRC}`} strokeDashoffset={part.offset} />)}</g>
       </svg>
-      <div className={styles.center}><strong>{total}</strong><span>kcal eaten</span></div>
+      <div className={styles.center}><strong style={{ "--calorie-width": Math.max(1, displayTotal.length * .64) } as React.CSSProperties}>{displayTotal}</strong><span>kcal eaten</span></div>
     </div>
     {width > 0 && active && from && end && <svg className={styles.leader} viewBox={`0 0 ${width} ${HEIGHT}`} aria-hidden="true">
       <defs><mask id={maskId} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse"><rect width={width} height={HEIGHT} fill="white" /><circle cx={cx} cy={cy} r={88 * scale} fill="none" stroke="black" strokeWidth={26 * scale} /></mask></defs>
@@ -116,7 +118,7 @@ export default function MealRing({ meals }: { meals: RingMeal[] }) {
       })}
       <path d={right ? `M ${end.x - 5} ${end.y - 3} L ${end.x} ${end.y} L ${end.x - 5} ${end.y + 3}` : `M ${end.x + 5} ${end.y - 3} L ${end.x} ${end.y} L ${end.x + 5} ${end.y + 3}`} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>}
-    {dots.map((dot) => <button key={dot.meal.id} type="button" className={styles.dot} style={{ left: dot.x, top: dot.y, background: dot.color }} aria-label={`Show ${dot.meal.name}, ${dot.meal.kcal} calories`} aria-pressed={dot.meal.id === selected?.meal.id} onClick={() => setSelectedId(dot.meal.id)} />)}
-    {active && <div className={`${styles.callout} ${right ? styles.right : styles.left} ${top ? styles.top : styles.bottom}`} style={{ width: labelWidth }} aria-live="polite"><strong>{active.meal.name}</strong><small>· {active.meal.kcal} kcal</small></div>}
+    {dots.map((dot) => <button key={dot.meal.id} type="button" className={styles.dot} style={{ left: dot.x, top: dot.y, background: dot.color }} aria-label={`Show ${dot.meal.name}, ${formatCalories(dot.meal.kcal)} calories`} aria-pressed={dot.meal.id === selected?.meal.id} onClick={() => setSelectedId(dot.meal.id)} />)}
+    {active && <div className={`${styles.callout} ${right ? styles.right : styles.left} ${top ? styles.top : styles.bottom}`} style={{ width: labelWidth }} aria-live="polite"><strong>{active.meal.name}</strong><small>· {formatCalories(active.meal.kcal)} kcal</small></div>}
   </div>;
 }

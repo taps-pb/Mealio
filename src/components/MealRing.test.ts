@@ -24,4 +24,23 @@ describe("meal share colors", () => {
     ]);
     expect(dots).toEqual(arcs);
   });
+  it("formats the total, meal callout and accessible chart labels", () => {
+    const html = renderToStaticMarkup(createElement(MealRing, { meals: [
+      { id: "one", name: "Rice", kcal: 1850.57 },
+      { id: "two", name: "Tea", kcal: 149.1 },
+    ] }));
+    expect(html).toContain("1,999.7 kcal total");
+    expect(html).toContain("Show Rice, 1,850.6 calories");
+    expect(html).toContain("1,850.6 kcal");
+    expect(html).not.toContain("1850.5700000000");
+  });
+  it("keeps five-digit formatted totals in the responsive center and ignores invalid arc values", () => {
+    const html = renderToStaticMarkup(createElement(MealRing, { meals: [
+      { id: "large", name: "Large", kcal: 10_000.02 },
+      { id: "bad", name: "Invalid", kcal: NaN },
+    ] }));
+    expect(html).toContain("10,000 kcal total");
+    expect(html).toContain("--calorie-width:");
+    expect(html).not.toContain("NaN");
+  });
 });

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import PDFDocument from "pdfkit";
 
+import { formatCalories } from "@/lib/formatCalories";
 import type { HistoryGroup, HistoryOptions } from "@/lib/history";
 import type { Meal } from "@/server/db/schema";
 
@@ -15,7 +16,6 @@ const top = 40; // roughly 14 mm
 const width = 595.28 - left * 2;
 const timelineTop = 289;
 const timelineBottom = 770;
-const number = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
 
 type Density = { foodSize: number; kcalSize: number; timeSize: number; badgeHeight: number;
   foodOffset: number; lineGap: number; bottomPad: number; gap: number };
@@ -50,7 +50,7 @@ export async function renderHistoryPdf(groups: HistoryGroup<Meal>[], timezone: s
   const weekdayFormat = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long" });
   const dayInstant = (day: string) => new Date(`${day}T12:00:00Z`); // already an owner-local calendar key
   const time = (meal: Meal) => clock.format(meal.eatenAt).replace(/\b(am|pm)\b/gi, (period) => period.toUpperCase());
-  const calories = (meal: Meal) => `${number.format(meal.kcal)} kcal`;
+  const calories = (meal: Meal) => `${formatCalories(meal.kcal)} kcal`;
 
   function measureMeal(meal: Meal, density: Density) {
     const value = calories(meal);
@@ -97,7 +97,7 @@ export async function renderHistoryPdf(groups: HistoryGroup<Meal>[], timezone: s
     const gradient = pdf.linearGradient(cx - 55, cy - 55, cx + 55, cy + 55);
     gradient.stop(0, colors.darkTeal).stop(.65, colors.teal).stop(1, colors.sky);
     pdf.lineWidth(11).circle(cx, cy, 53).stroke(gradient);
-    const value = number.format(total);
+    const value = formatCalories(total);
     const textSize = Math.min(24, 24 * 87 / pdf.font("Helvetica-Bold").fontSize(24).widthOfString(value));
     pdf.font("Helvetica-Bold").fontSize(textSize).fillColor(colors.ink)
       .text(value, cx - 47, cy - 19, { width: 94, align: "center", lineBreak: false });
@@ -131,7 +131,7 @@ export async function renderHistoryPdf(groups: HistoryGroup<Meal>[], timezone: s
     pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.muted)
       .text("TOTAL CONSUMED", left + 14, 193, { characterSpacing: 1.1, lineBreak: false });
     pdf.text("MEALS LOGGED", left + width / 2 + 14, 193, { characterSpacing: 1.1, lineBreak: false });
-    const total = `${number.format(group.totalKcal)} kcal`;
+    const total = `${formatCalories(group.totalKcal)} kcal`;
     const totalWidth = width / 2 - 25;
     const totalSize = Math.min(17, 17 * totalWidth / pdf.font("Helvetica-Bold").fontSize(17).widthOfString(total));
     pdf.font("Helvetica-Bold").fontSize(totalSize).fillColor(colors.deepTeal)

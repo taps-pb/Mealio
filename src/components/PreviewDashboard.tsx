@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatCalories } from "@/lib/formatCalories";
 import MealRing from "@/components/MealRing";
 import styles from "@/app/page.module.css";
 
@@ -85,7 +86,7 @@ export default function Home() {
   const mealRow = (meal: Meal) => <article key={meal.id} className={styles.meal}>
     <span className={styles.mealIcon} aria-hidden="true">✦</span>
     <div className={styles.mealCopy}><strong>{meal.name}</strong><small>{new Date(meal.eatenAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} · P {meal.protein}g · C {meal.carbs}g</small></div>
-    <span className={styles.kcal}>{meal.kcal}<small>kcal</small></span>
+    <span className={styles.kcal}>{formatCalories(meal.kcal)}<small>kcal</small></span>
     <div className={styles.mealActions}><button type="button" onClick={() => openEdit(meal)}>Edit</button><button type="button" onClick={() => setConfirmId(meal.id)}>Delete</button></div>
     {confirmId === meal.id && <div className={styles.confirm}>Delete {meal.name}? <button type="button" onClick={() => { setMeals((current) => current.filter((item) => item.id !== meal.id)); setConfirmId(null); }}>Yes, delete</button><button type="button" onClick={() => setConfirmId(null)}>Cancel</button></div>}
   </article>;
@@ -103,9 +104,9 @@ export default function Home() {
       <label>Meal description<textarea rows={3} required placeholder="e.g. Rice, chicken and vegetables" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
       <div className={styles.fieldGrid}>{(["kcal", "protein", "carbs"] as const).map((field) => <label key={field}>{field === "kcal" ? "Calories (kcal)" : `${field[0].toUpperCase()}${field.slice(1)} (g)`}<input type="number" min="0" step="any" required value={draft[field]} onChange={(event) => setDraft({ ...draft, [field]: event.target.value })} /></label>)}</div>
       <label>When did you eat?<input type="datetime-local" required value={draft.eatenAt} onChange={(event) => setDraft({ ...draft, eatenAt: event.target.value })} /></label>{error && <p role="alert" className={styles.error}>{error}</p>}<button className={styles.primary} type="submit">Review meal</button>
-    </form> : <div className={styles.review}><strong>{draft.name}</strong><p>{draft.kcal} kcal · {draft.protein} g protein · {draft.carbs} g carbs</p><p>{draft.eatenAt.replace("T", " ")}</p>{error && <p role="alert" className={styles.error}>{error}</p>}<div className={styles.actions}><button type="button" onClick={() => setView("new")}>Back to edit</button><button className={styles.primary} type="button" onClick={save}>Save meal</button></div></div>}</section>}
+    </form> : <div className={styles.review}><strong>{draft.name}</strong><p>{formatCalories(draft.kcal)} kcal · {draft.protein} g protein · {draft.carbs} g carbs</p><p>{draft.eatenAt.replace("T", " ")}</p>{error && <p role="alert" className={styles.error}>{error}</p>}<div className={styles.actions}><button type="button" onClick={() => setView("new")}>Back to edit</button><button className={styles.primary} type="button" onClick={save}>Save meal</button></div></div>}</section>}
 
-    {view === "history" && <section className={styles.list}><div className={styles.sectionHeading}><div><span className={styles.eyebrow}>THE FULL PICTURE</span><h2>History</h2></div></div>{groups.map(([date, group]) => { const entries = group ?? []; const sum = totals(entries); return <div key={date} className={styles.day}><div className={styles.dayHeading}><strong>{date}</strong><span>{sum.kcal} kcal · P {sum.protein}g · C {sum.carbs}g</span></div>{entries.map(mealRow)}</div>; })}{!groups.length && <p className={styles.empty}>No meals logged yet.</p>}</section>}
+    {view === "history" && <section className={styles.list}><div className={styles.sectionHeading}><div><span className={styles.eyebrow}>THE FULL PICTURE</span><h2>History</h2></div></div>{groups.map(([date, group]) => { const entries = group ?? []; const sum = totals(entries); return <div key={date} className={styles.day}><div className={styles.dayHeading}><strong>{date}</strong><span>{formatCalories(sum.kcal)} kcal · P {sum.protein}g · C {sum.carbs}g</span></div>{entries.map(mealRow)}</div>; })}{!groups.length && <p className={styles.empty}>No meals logged yet.</p>}</section>}
 
     <nav className={styles.nav} aria-label="Main"><button type="button" aria-current={view === "today" ? "page" : undefined} onClick={() => setView("today")}>Today</button><button type="button" className={styles.add} onClick={openNew} aria-label="Add meal">+</button><button type="button" aria-current={view === "history" ? "page" : undefined} onClick={() => setView("history")}>History</button></nav>
   </main>;

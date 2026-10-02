@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { formatCalories } from "@/lib/formatCalories";
 import HistoryPanel from "./HistoryPanel";
 import MealRing from "./MealRing";
 import { dayTitle, groupForDay, stepDayKey } from "./daySelection";
@@ -39,7 +40,7 @@ const SnapshotInfo = ({ item }: { item: Snapshot }) => <div className={styles.sn
   <strong className={styles.estimateLabel}>{item.source === "manual" ? "Your nutrition" : "Estimated nutrition"}</strong>
   <div className={styles.estimateMetrics}>
     {([ ["Calories", item.kcal, "kcal"], ["Protein", item.protein, "g"], ["Carbs", item.carbs, "g"], ["Fat", item.fat, "g"] ] as const)
-      .map(([label, value, unit]) => <div key={label}><small>{label}</small><strong>{value == null ? "—" : `${item.source === "manual" ? "" : "~"}${value} ${unit}`}</strong></div>)}
+      .map(([label, value, unit]) => <div key={label}><small>{label}</small><strong>{value == null ? "—" : `${item.source === "manual" ? "" : "~"}${unit === "kcal" ? formatCalories(value) : value} ${unit}`}</strong></div>)}
   </div>
   <p className={styles.estimateNote}>{item.source === "recipe_estimate" || item.source === "estimated"
     ? "Estimated from a typical serving or recipe. Actual ingredients, portion and cooking oil may vary."
@@ -52,7 +53,7 @@ const SnapshotInfo = ({ item }: { item: Snapshot }) => <div className={styles.sn
       {item.uncertainty && <p className={styles.uncertain}>{item.uncertainty}</p>}
       {(item.assumptions ?? []).filter((note) => !item.uncertainty?.includes(note))
         .map((note, index) => <p key={index} className={styles.assumption}>Assumption: {note}</p>)}
-      {!!item.ingredients?.length && <ul>{item.ingredients.map((entry, index) => <li key={index}>{entry.name} · {entry.grams} g · {entry.kcal ?? "—"} kcal · {sourceLabel(entry.source)}{entry.uncertainty ? ` · ${entry.uncertainty}` : ""}</li>)}</ul>}
+      {!!item.ingredients?.length && <ul>{item.ingredients.map((entry, index) => <li key={index}>{entry.name} · {entry.grams} g · {entry.kcal == null ? "—" : formatCalories(entry.kcal)} kcal · {sourceLabel(entry.source)}{entry.uncertainty ? ` · ${entry.uncertainty}` : ""}</li>)}</ul>}
     </details> : null}
 </div>;
 
@@ -277,7 +278,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
   const renderMeal = (meal: Meal) => <article key={meal.id} className={styles.meal}>
     <span className={styles.mealIcon} aria-hidden="true">✦</span>
     <div className={styles.mealCopy}><strong>{meal.description}</strong><small>{new Date(meal.eatenAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: timezone })} · P {meal.protein}g · C {meal.carbs}g{meal.fat == null ? "" : ` · F ${meal.fat}g`}</small>{meal.itemSnapshots.some((item) => item.uncertainty) && <small>Contains uncertain items</small>}</div>
-    <div className={styles.mealKcal}>{meal.kcal}<small>kcal</small></div>
+    <div className={styles.mealKcal}>{formatCalories(meal.kcal)}<small>kcal</small></div>
     <div className={styles.mealActions}><button type="button" onClick={() => { setDetailId(meal.id); setDetailsFrom(view === "history" ? "history" : "today"); setDeleteId(null); setView("details"); }}>Details</button><button type="button" onClick={() => startEdit(meal)}>Edit</button><button type="button" onClick={() => setDeleteId(meal.id)}>Delete</button></div>
     {deleteId === meal.id && <div className={styles.confirm}><span>Delete {meal.description}?</span><button type="button" disabled={busy} onClick={() => void remove(meal.id)}>Yes, delete</button><button type="button" onClick={() => setDeleteId(null)}>Cancel</button></div>}
   </article>;
@@ -314,7 +315,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
       {detailMeal ? <>
         <p>{new Date(detailMeal.eatenAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: timezone })} · {timezone}</p>
         <h3>{detailMeal.description}</h3><div className={styles.macros}>
-          <div><small>Calories</small><strong>{detailMeal.kcal} kcal</strong></div>
+          <div><small>Calories</small><strong>{formatCalories(detailMeal.kcal)} kcal</strong></div>
           <div><small>Protein</small><strong>{detailMeal.protein} g</strong></div>
           <div><small>Carbs</small><strong>{detailMeal.carbs} g</strong></div>
           <div><small>Fat</small><strong>{detailMeal.fat == null ? "—" : `${detailMeal.fat} g`}</strong></div>
