@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderHistoryPdf } from "./history-pdf";
+import { PdfDayOverflowError, renderHistoryPdf } from "./history-pdf";
 import type { Meal } from "@/server/db/schema";
 import type { HistoryGroup, HistoryOptions } from "@/lib/history";
 
@@ -18,12 +18,26 @@ describe("private history PDF", () => {
     expect(pdf.length).toBeGreaterThan(2000);
     expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(1);
   });
-  it("paginates longer history with long descriptions and no orphan date headings", async () => {
-    const groups: HistoryGroup<Meal>[] = [{ day: "2026-09-28", meals: Array.from({ length: 80 }, (_, i) => ({ ...sample,
-      id: String(i).padStart(36, "0"), description: `Meal ${i + 1}: ${"chocos, butterscotch milkshake, three idli, sambar and poha ".repeat(5)}` })),
-      totalKcal: 25600, totalProtein: 960, totalCarbs: 3840 }];
-    const pdf = await renderHistoryPdf(groups, "UTC", options);
-    expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBeGreaterThan(1);
+  it("allocates exactly one page per date, even across 20+ meals", async () => {
+    const groups: HistoryGroup<Meal>[] = Array.from({ length: 7 }, (_, day) => ({
+      day: `2026-09-${String(28 - day).padStart(2, "0")}`,
+      meals: Array.from({ length: 4 }, (_, i) => ({ ...sample, id: `meal-${day}-${i}`,
+        description: i === 2 ? "paneer and sabzi with roti" : "दाल और चावल" })),
+      totalKcal: 1280, totalProtein: 48, totalCarbs: 192,
+    }));
+    const pdf = await renderHistoryPdf(groups, "Asia/Kolkata", options);
+    expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(7);
+  });
+  it("fails explicitly rather than splitting, shrinking excessively, or dropping meals from an overloaded day", async () => {
+    const meals = Array.from({ length: 35 }, (_, i) => ({ ...sample, id: `meal-${i}`, description: "Aloo paratha" }));
+    await expect(renderHistoryPdf([{ day: "2026-09-28", meals, totalKcal: 11_200,
+      totalProtein: 420, totalCarbs: 1680 }], "Asia/Kolkata", options)).rejects.toBeInstanceOf(PdfDayOverflowError);
+  });
+  it("packs a busy but short-description day onto its single page", async () => {
+    const meals = Array.from({ length: 12 }, (_, i) => ({ ...sample, id: `meal-${i}`, description: "Aloo paratha" }));
+    const pdf = await renderHistoryPdf([{ day: "2026-09-28", meals, totalKcal: 3840,
+      totalProtein: 144, totalCarbs: 576 }], "Asia/Kolkata", options);
+    expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(1);
   });
   it("ignores extra nutrition and recipe data when creating the PDF", async () => {
     const meal: Meal = { ...sample, fat: 12, itemSnapshots: [{
@@ -38,13 +52,13 @@ describe("private history PDF", () => {
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(2000);
   });
-  it("keeps even a multiline saved description in one measured meal row", async () => {
-    const meal = { ...sample, description: ("paneer\nwith rice\tand dal ").repeat(20).slice(0, 480) };
+  it("preserves a multiline saved description without splitting a normally sized day", async () => {
+    const meal = { ...sample, description: ("paneer\nwith rice\tand dal ").repeat(10).slice(0, 240) };
     const pdf = await renderHistoryPdf([{ day: "2026-09-28", meals: [meal], totalKcal: meal.kcal,
       totalProtein: meal.protein, totalCarbs: meal.carbs }], "Asia/Kolkata", options);
     expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(1);
   });
-  it("fits large calorie labels, midnight/noon meals, and several dated cards on one page", async () => {
+  it("fits large calorie labels and midnight/noon meals on separate dated pages", async () => {
     const groups: HistoryGroup<Meal>[] = [
       { day: "2026-10-02", meals: [
         { ...sample, id: "midnight", description: "Midnight poha", eatenAt: new Date("2026-10-01T18:30:00Z"), kcal: 12_450 },
@@ -53,6 +67,6 @@ describe("private history PDF", () => {
       { day: "2026-10-01", meals: [{ ...sample, id: "previous" }], totalKcal: 320, totalProtein: 12, totalCarbs: 48 },
     ];
     const pdf = await renderHistoryPdf(groups, "Asia/Kolkata", options);
-    expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(1);
+    expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(2);
   });
 });

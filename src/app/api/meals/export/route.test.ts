@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/headers", () => ({ cookies: vi.fn() }));
 vi.mock("@/server/auth/session", () => ({ findSession: vi.fn() }));
 vi.mock("@/server/meals/service", () => ({ listMeals: vi.fn() }));
-vi.mock("@/server/meals/history-pdf", () => ({ renderHistoryPdf: vi.fn() }));
+vi.mock("@/server/meals/history-pdf", () => ({ renderHistoryPdf: vi.fn(), PdfDayOverflowError: class PdfDayOverflowError extends Error {} }));
 
 import { findSession } from "@/server/auth/session";
 import { listMeals } from "@/server/meals/service";
-import { renderHistoryPdf } from "@/server/meals/history-pdf";
+import { PdfDayOverflowError, renderHistoryPdf } from "@/server/meals/history-pdf";
 import { GET } from "./route";
 
 const request = (query = "") => new NextRequest(`https://mealio.test/api/meals/export${query}`);
@@ -59,5 +59,13 @@ describe("private PDF export", () => {
     expect(filtered[0].meals.map((meal) => meal.description)).toEqual(["Paneer roti"]);
     expect(filtered[0].totalKcal).toBe(400);
     expect(vi.mocked(renderHistoryPdf).mock.calls[0][1]).toBe("Asia/Kolkata");
+  });
+  it("returns a clear size error when a single day cannot fit, without returning a partial PDF", async () => {
+    vi.mocked(renderHistoryPdf).mockRejectedValue(new PdfDayOverflowError());
+    const response = await GET(request());
+    expect(response.status).toBe(413);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect((await response.json()).error).toContain("one PDF page");
+    expect(response.headers.get("content-type")).not.toBe("application/pdf");
   });
 });

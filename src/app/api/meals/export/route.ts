@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { filterAndSortHistory, historyTotals, isValidDay, type HistoryOptions, type HistorySort } from "@/lib/history";
 import { findSession } from "@/server/auth/session";
 import { listMeals } from "@/server/meals/service";
-import { renderHistoryPdf } from "@/server/meals/history-pdf";
+import { PdfDayOverflowError, renderHistoryPdf } from "@/server/meals/history-pdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
       "Content-Length": String(pdf.length),
       "Cross-Origin-Resource-Policy": "same-origin",
     } });
-  } catch {
+  } catch (cause) {
+    if (cause instanceof PdfDayOverflowError) return error(413, "A day has too many meals to fit on one PDF page. Refine the search to export fewer meals from that day.");
     // Database/PDF errors can contain private data or connection strings.
     return error(503, "Export unavailable. Try again later.");
   }
