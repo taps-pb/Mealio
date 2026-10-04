@@ -43,7 +43,7 @@ export type MealItemSnapshot = {
   fat?: number | null;
   fiber?: number | null;
   sugar?: number | null;
-  source: "usda" | "indb" | "manual" | "unmatched" | "recipe_estimate" | "estimated";
+  source: "usda" | "indb" | "manual" | "unmatched" | "recipe_estimate" | "estimated" | "local";
   sourceId: string | null;
   uncertainty: string | null;
   assumptions?: string[];
@@ -52,6 +52,10 @@ export type MealItemSnapshot = {
   recipeUncertainty?: string | null;
   per100g?: { kcal: number; protein: number; carbs: number; fat: number | null; fiber: number | null; sugar: number | null } | null;
   portionEdited?: boolean;
+  local?: { rawText: string; normalizedText: string; foodId: string | null; databaseVersion: string; method: string;
+    confidence: "exact" | "high" | "medium" | "low" | "unknown"; source: string; sourceVersion: string;
+    portionBasis: "g" | "ml" | "serving" | null; portionAmount: number | null; recipeVersion: number | null;
+    sourceRecordId: string | null; license: string | null };
   ingredients?: { name: string; grams: number; kcal: number | null; protein: number | null; carbs: number | null;
     fat: number | null; source: "usda" | "indb" | "manual" | "unmatched" | "estimated"; sourceId: string | null; uncertainty: string | null }[];
 };

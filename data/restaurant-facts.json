@@ -1,0 +1,16 @@
+{
+  "source": {
+    "id":"subway-in","name":"Subway India official nutrition","version":"August 2026","retrieved":"2026-10-04",
+    "url":"https://qnet.blob.core.windows.net/central/Nutritional%20Allergen%20Chart%20-%20August%202026%20-%201786080088269.pdf",
+    "license":"Factual nutrition excerpt; original document copyright retained by Subway (no open license asserted)",
+    "licenseUrl":"https://subway.in/nutrition-allergen-info","transformation":"scripts/build-food-db.ts (reviewed fact transcription)",
+    "recordsImported":4,"sha256":"f8dd4a1c76d32c291e554aacb5e6fc932922ab66612461681d620af7d793ac13","rawBytes":839965
+  },
+  "note":"Only four factual nutrition entries are transcribed; no document, imagery or trade dress redistributed. Footlong is twice the 6-inch values, explicitly instructed on page 3. Standard recipe includes multigrain bread, vegetables and recommended sauce. Other builds differ.",
+  "items":[
+    {"id":"subway-paneer-15","name":"Subway Paneer Tikka 15 cm","variant":"15 cm","grams":274,"kcal":529,"protein":20,"carbs":57,"fat":20,"sugar":6,"sodium":1581,"aliases":["paneer tikka subway sandwich","paneer tikka subway","subway paneer tikka"],"page":1},
+    {"id":"subway-paneer-30","name":"Subway Paneer Tikka 30 cm","variant":"30 cm","grams":548,"kcal":1058,"protein":40,"carbs":114,"fat":40,"sugar":12,"sodium":3162,"aliases":["paneer tikka subway sandwich","paneer tikka subway","subway paneer tikka"],"page":1},
+    {"id":"subway-crispers","name":"Subway Crispers","grams":93,"kcal":127,"protein":3,"carbs":22,"fat":3,"sugar":0,"sodium":1138,"aliases":["subway crispers"],"page":3},
+    {"id":"subway-double-cookie","name":"Subway Double Dark Chunk Cookie (eggless)","grams":45,"kcal":204,"protein":3,"carbs":27,"fat":9,"sugar":14,"sodium":136,"aliases":["subway double chocolate cookie","subway double dark chunk cookie"],"page":3,"note":"Double chocolate interpreted as the current India Double Dark Chunk Cookie. Confirm product."}
+  ]
+}

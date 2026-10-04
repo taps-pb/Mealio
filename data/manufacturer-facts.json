@@ -1,0 +1,14 @@
+{
+  "source": {
+    "id":"coca-cola-in","name":"Coca-Cola India official Sprite label","version":"retrieved 2026-10-04","retrieved":"2026-10-04",
+    "url":"https://www.coca-cola.com/in/en/brands/sprite",
+    "license":"Factual nutrition excerpt; original website copyright retained by Coca-Cola (no open license asserted)",
+    "licenseUrl":"https://www.coca-cola.com/in/en/brands/sprite","transformation":"scripts/build-food-db.ts (reviewed fact transcription)",
+    "recordsImported":1,"sha256":"5ad5ab085c95657d1c585339615028f9f445ea0e52b79243afa7d73be734c02c","rawBytes":148459
+  },
+  "items": [
+    {"id":"label-sprite-india","name":"Sprite (India manufacturer label)","brand":"Sprite","basis":"ml",
+      "nutrition":{"kcal":49,"protein":0,"carbs":12.2,"fat":0,"fiber":null,"sugar":11.7,"sodium":10.1},
+      "aliases":["sprite","sprite india"],"note":"Official India label per 100 ml; packaging/formulation may differ. Default identity is the regular India drink, not Sprite Zero. Specify consumed volume."}
+  ]
+}

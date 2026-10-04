@@ -47,6 +47,12 @@
 .editor label { display: grid; gap: 4px; margin: 14px 0; font-size: 12px; font-weight: 600; min-width: 0; }
 .editor input, .editor textarea { min-height: 44px; width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-page); color: var(--color-text); font: inherit; }
 .editor textarea { min-height: 90px; resize: vertical; }
+.editor select { min-height: 44px; width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-page); color: var(--color-text); font: inherit; }
+.localEstimator summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--color-arc-primary); }
+.localEstimator p, .localEstimator li { overflow-wrap: anywhere; }
+.localEstimator a { color: var(--color-arc-primary); }
+.editor .localCheck { display: flex; align-items: center; gap: 8px; }
+.editor .localCheck input { width: 20px; min-height: 20px; }
 .fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .fields label { min-width: 0; overflow-wrap: anywhere; }
 .items h3 { font-size: 15px; margin: 20px 0 10px; }

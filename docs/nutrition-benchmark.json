@@ -1,0 +1,19 @@
+{
+  "node": "v22.23.3",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "indexBuildMs": 1.8797079999999937,
+  "firstPass": {
+    "count": 25,
+    "medianMs": 0.21025000000000205,
+    "p95Ms": 1.7378750000000025,
+    "maxMs": 4.906749999999988
+  },
+  "cached": {
+    "count": 2500,
+    "medianMs": 0.012167000000005146,
+    "p95Ms": 0.04775000000000773,
+    "maxMs": 0.27837499999999693
+  },
+  "networkRequests": 0
+}

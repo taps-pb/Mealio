@@ -1,0 +1,1621 @@
+{
+  "sources": [
+    {
+      "id": "usda-fndds",
+      "name": "USDA FNDDS",
+      "version": "2021-2023 (2024-10-31)",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://fdc.nal.usda.gov/",
+      "retrieved": "2026-10-04",
+      "transformation": "scripts/import-usda.py",
+      "recordsImported": 16,
+      "sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+      "rawBytes": 3835292
+    },
+    {
+      "id": "usda-sr",
+      "name": "USDA SR Legacy",
+      "version": "2018-04",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_json_2018-04.zip",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://fdc.nal.usda.gov/",
+      "retrieved": "2026-10-04",
+      "transformation": "scripts/import-usda.py",
+      "recordsImported": 18,
+      "sha256": "0fe8ae486a2c8eb42cb96413f058deb51863a46c8fb8eeb4b1fb45006dd338ef",
+      "rawBytes": 13456312
+    }
+  ],
+  "records": [
+    {
+      "id": "usda-168877",
+      "sourceId": "168877",
+      "source": "usda-sr",
+      "description": "Rice, white, long-grain, regular, raw, enriched",
+      "aliases": [
+        "dry rice"
+      ],
+      "nutrition": {
+        "kcal": 365,
+        "protein": 7.13,
+        "carbs": 80.0,
+        "fat": 0.66,
+        "fiber": 1.3,
+        "sugar": 0.12,
+        "sodium": 5.0
+      },
+      "category": "Cereal Grains and Pasta",
+      "portions": [
+        {
+          "name": "cup",
+          "grams": 185.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-168878",
+      "sourceId": "168878",
+      "source": "usda-sr",
+      "description": "Rice, white, long-grain, regular, enriched, cooked",
+      "aliases": [
+        "cooked rice",
+        "rice",
+        "chawal"
+      ],
+      "nutrition": {
+        "kcal": 130,
+        "protein": 2.69,
+        "carbs": 28.2,
+        "fat": 0.28,
+        "fiber": 0.4,
+        "sugar": 0.05,
+        "sodium": 1.0
+      },
+      "category": "Cereal Grains and Pasta",
+      "portions": [
+        {
+          "name": "cup",
+          "grams": 158.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-168893",
+      "sourceId": "168893",
+      "source": "usda-sr",
+      "description": "Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)",
+      "aliases": [
+        "whole wheat flour",
+        "atta"
+      ],
+      "nutrition": {
+        "kcal": 340,
+        "protein": 13.2,
+        "carbs": 72.0,
+        "fat": 2.5,
+        "fiber": 10.7,
+        "sugar": 0.41,
+        "sodium": 2.0
+      },
+      "category": "Cereal Grains and Pasta",
+      "portions": [
+        {
+          "name": "cup",
+          "grams": 120.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-169097",
+      "sourceId": "169097",
+      "source": "usda-sr",
+      "description": "Oranges, raw, all commercial varieties",
+      "aliases": [
+        "orange"
+      ],
+      "nutrition": {
+        "kcal": 47.0,
+        "protein": 0.94,
+        "carbs": 11.8,
+        "fat": 0.12,
+        "fiber": 2.4,
+        "sugar": 9.35,
+        "sodium": 0.0
+      },
+      "category": "Fruits and Fruit Juices",
+      "portions": [
+        {
+          "name": "small (2-3/8\" dia)",
+          "grams": 96.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large (3-1/16\" dia)",
+          "grams": 184.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup, sections",
+          "grams": 180.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "fruit (2-5/8\" dia)",
+          "grams": 131.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-169655",
+      "sourceId": "169655",
+      "source": "usda-sr",
+      "description": "Sugars, granulated",
+      "aliases": [
+        "sugar"
+      ],
+      "nutrition": {
+        "kcal": 387,
+        "protein": 0.0,
+        "carbs": 100,
+        "fat": 0.0,
+        "fiber": 0.0,
+        "sugar": 99.8,
+        "sodium": 1.0
+      },
+      "category": "Sweets",
+      "portions": [
+        {
+          "name": "cup",
+          "grams": 200.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "serving 1 cube",
+          "grams": 2.3,
+          "quantity": 1.0
+        },
+        {
+          "name": "tsp",
+          "grams": 4.2,
+          "quantity": 1.0
+        },
+        {
+          "name": "serving packet",
+          "grams": 2.8,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-170000",
+      "sourceId": "170000",
+      "source": "usda-sr",
+      "description": "Onions, raw",
+      "aliases": [
+        "onion"
+      ],
+      "nutrition": {
+        "kcal": 40.0,
+        "protein": 1.1,
+        "carbs": 9.34,
+        "fat": 0.1,
+        "fiber": 1.7,
+        "sugar": 4.24,
+        "sodium": 4.0
+      },
+      "category": "Vegetables and Vegetable Products",
+      "portions": [
+        {
+          "name": "cup, chopped",
+          "grams": 160.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "slice, medium (1/8\" thick)",
+          "grams": 14.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "medium (2-1/2\" dia)",
+          "grams": 110.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large",
+          "grams": 150.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "rings",
+          "grams": 60.0,
+          "quantity": 10.0
+        },
+        {
+          "name": "tbsp chopped",
+          "grams": 10.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup, sliced",
+          "grams": 115.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "slice, thin",
+          "grams": 9.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "small",
+          "grams": 70.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "slice, large (1/4\" thick)",
+          "grams": 38.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-170162",
+      "sourceId": "170162",
+      "source": "usda-sr",
+      "description": "Nuts, cashew nuts, raw",
+      "aliases": [
+        "cashews",
+        "kaju"
+      ],
+      "nutrition": {
+        "kcal": 553,
+        "protein": 18.2,
+        "carbs": 30.2,
+        "fat": 43.8,
+        "fiber": 3.3,
+        "sugar": 5.91,
+        "sodium": 12.0
+      },
+      "category": "Nut and Seed Products",
+      "portions": [
+        {
+          "name": "oz",
+          "grams": 28.35,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-170440",
+      "sourceId": "170440",
+      "source": "usda-sr",
+      "description": "Potatoes, boiled, cooked without skin, flesh, without salt",
+      "aliases": [
+        "boiled potato"
+      ],
+      "nutrition": {
+        "kcal": 86.0,
+        "protein": 1.71,
+        "carbs": 20.0,
+        "fat": 0.1,
+        "fiber": 1.8,
+        "sugar": 0.89,
+        "sodium": 5.0
+      },
+      "category": "Vegetables and Vegetable Products",
+      "portions": [
+        {
+          "name": "small (1-3/4\" to 2-1/2\" dia.)",
+          "grams": 125.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large (3\" to 4-1/4\" dia.)",
+          "grams": 300.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "medium (2-1/4\" to 3-1/4\" dia.)",
+          "grams": 167.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup",
+          "grams": 78.0,
+          "quantity": 0.5
+        }
+      ]
+    },
+    {
+      "id": "usda-170457",
+      "sourceId": "170457",
+      "source": "usda-sr",
+      "description": "Tomatoes, red, ripe, raw, year round average",
+      "aliases": [
+        "tomato"
+      ],
+      "nutrition": {
+        "kcal": 18.0,
+        "protein": 0.88,
+        "carbs": 3.89,
+        "fat": 0.2,
+        "fiber": 1.2,
+        "sugar": 2.63,
+        "sodium": 5.0
+      },
+      "category": "Vegetables and Vegetable Products",
+      "portions": [
+        {
+          "name": "medium whole (2-3/5\" dia)",
+          "grams": 123.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "slice, medium (1/4\" thick)",
+          "grams": 20.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large whole (3\" dia)",
+          "grams": 182.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cherry",
+          "grams": 17.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "Italian tomato",
+          "grams": 62.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "slice, thin/small",
+          "grams": 15.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup, chopped or sliced",
+          "grams": 180.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "small whole (2-2/5\" dia)",
+          "grams": 91.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "slice, thick/large (1/2\" thick)",
+          "grams": 27.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup cherry tomatoes",
+          "grams": 149.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "wedge (1/4 of medium tomato)",
+          "grams": 31.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "NLEA serving",
+          "grams": 148.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "plum tomato",
+          "grams": 62.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-170923",
+      "sourceId": "170923",
+      "source": "usda-sr",
+      "description": "Spices, cumin seed",
+      "aliases": [
+        "cumin seeds"
+      ],
+      "nutrition": {
+        "kcal": 375,
+        "protein": 17.8,
+        "carbs": 44.2,
+        "fat": 22.3,
+        "fiber": 10.5,
+        "sugar": 2.25,
+        "sodium": 168
+      },
+      "category": "Spices and Herbs",
+      "portions": [
+        {
+          "name": "tsp, whole",
+          "grams": 2.1,
+          "quantity": 1.0
+        },
+        {
+          "name": "tbsp, whole",
+          "grams": 6.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-171284",
+      "sourceId": "171284",
+      "source": "usda-sr",
+      "description": "Yogurt, plain, whole milk",
+      "aliases": [
+        "yogurt",
+        "plain yogurt",
+        "curd"
+      ],
+      "nutrition": {
+        "kcal": 61.0,
+        "protein": 3.47,
+        "carbs": 4.66,
+        "fat": 3.25,
+        "fiber": 0.0,
+        "sugar": 4.66,
+        "sodium": 46.0
+      },
+      "category": "Dairy and Egg Products",
+      "portions": [
+        {
+          "name": "container (8 oz)",
+          "grams": 227.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "container (6 oz)",
+          "grams": 170.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "container (4 oz)",
+          "grams": 113.0,
+          "quantity": 0.5
+        },
+        {
+          "name": "cup (8 fl oz)",
+          "grams": 245.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-171287",
+      "sourceId": "171287",
+      "source": "usda-sr",
+      "description": "Egg, whole, raw, fresh",
+      "aliases": [
+        "egg",
+        "raw egg"
+      ],
+      "nutrition": {
+        "kcal": 143,
+        "protein": 12.6,
+        "carbs": 0.72,
+        "fat": 9.51,
+        "fiber": 0.0,
+        "sugar": 0.37,
+        "sodium": 142
+      },
+      "category": "Dairy and Egg Products",
+      "portions": [
+        {
+          "name": "cup (4.86 large eggs)",
+          "grams": 243.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "medium",
+          "grams": 44.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "extra large",
+          "grams": 56.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "small",
+          "grams": 38.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "jumbo",
+          "grams": 63.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large",
+          "grams": 50.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-171688",
+      "sourceId": "171688",
+      "source": "usda-sr",
+      "description": "Apples, raw, with skin (Includes foods for USDA's Food Distribution Program)",
+      "aliases": [
+        "apple"
+      ],
+      "nutrition": {
+        "kcal": 52.0,
+        "protein": 0.26,
+        "carbs": 13.8,
+        "fat": 0.17,
+        "fiber": 2.4,
+        "sugar": 10.4,
+        "sodium": 1.0
+      },
+      "category": "Fruits and Fruit Juices",
+      "portions": [
+        {
+          "name": "cup slices",
+          "grams": 109.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "medium (3\" dia)",
+          "grams": 182.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "small (2-3/4\" dia)",
+          "grams": 149.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "NLEA serving",
+          "grams": 242.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup, quartered or chopped",
+          "grams": 125.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "extra small (2-1/2\" dia)",
+          "grams": 101.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large (3-1/4\" dia)",
+          "grams": 223.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-172336",
+      "sourceId": "172336",
+      "source": "usda-sr",
+      "description": "Oil, canola",
+      "aliases": [
+        "canola oil",
+        "oil"
+      ],
+      "nutrition": {
+        "kcal": 884,
+        "protein": 0.0,
+        "carbs": 0.0,
+        "fat": 100,
+        "fiber": 0.0,
+        "sugar": 0.0,
+        "sodium": 0.0
+      },
+      "category": "Fats and Oils",
+      "portions": [
+        {
+          "name": "tsp",
+          "grams": 4.5,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup",
+          "grams": 218.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "tbsp",
+          "grams": 14.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-172421",
+      "sourceId": "172421",
+      "source": "usda-sr",
+      "description": "Lentils, mature seeds, cooked, boiled, without salt",
+      "aliases": [
+        "cooked lentils",
+        "dal"
+      ],
+      "nutrition": {
+        "kcal": 116,
+        "protein": 9.02,
+        "carbs": 20.1,
+        "fat": 0.38,
+        "fiber": 7.9,
+        "sugar": 1.8,
+        "sodium": 2.0
+      },
+      "category": "Legumes and Legume Products",
+      "portions": [
+        {
+          "name": "cup",
+          "grams": 198.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "tbsp",
+          "grams": 12.3,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-173424",
+      "sourceId": "173424",
+      "source": "usda-sr",
+      "description": "Egg, whole, cooked, hard-boiled",
+      "aliases": [
+        "boiled egg"
+      ],
+      "nutrition": {
+        "kcal": 155,
+        "protein": 12.6,
+        "carbs": 1.12,
+        "fat": 10.6,
+        "fiber": 0.0,
+        "sugar": 1.12,
+        "sodium": 124
+      },
+      "category": "Dairy and Egg Products",
+      "portions": [
+        {
+          "name": "tbsp",
+          "grams": 8.5,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup, chopped",
+          "grams": 136.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large",
+          "grams": 50.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-173430",
+      "sourceId": "173430",
+      "source": "usda-sr",
+      "description": "Butter, without salt",
+      "aliases": [
+        "unsalted butter"
+      ],
+      "nutrition": {
+        "kcal": 717,
+        "protein": 0.85,
+        "carbs": 0.06,
+        "fat": 81.1,
+        "fiber": 0.0,
+        "sugar": 0.06,
+        "sodium": 11.0
+      },
+      "category": "Dairy and Egg Products",
+      "portions": [
+        {
+          "name": "pat (1\" sq, 1/3\" high)",
+          "grams": 5.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "tbsp",
+          "grams": 14.2,
+          "quantity": 1.0
+        },
+        {
+          "name": "stick",
+          "grams": 113.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup",
+          "grams": 227.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-173944",
+      "sourceId": "173944",
+      "source": "usda-sr",
+      "description": "Bananas, raw",
+      "aliases": [
+        "banana"
+      ],
+      "nutrition": {
+        "kcal": 89.0,
+        "protein": 1.09,
+        "carbs": 22.8,
+        "fat": 0.33,
+        "fiber": 2.6,
+        "sugar": 12.2,
+        "sodium": 1.0
+      },
+      "category": "Fruits and Fruit Juices",
+      "portions": [
+        {
+          "name": "NLEA serving",
+          "grams": 126.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "extra large (9\" or longer)",
+          "grams": 152.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "large (8\" to 8-7/8\" long)",
+          "grams": 136.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup, sliced",
+          "grams": 150.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "small (6\" to 6-7/8\" long)",
+          "grams": 101.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "extra small (less than 6\" long)",
+          "grams": 81.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "medium (7\" to 7-7/8\" long)",
+          "grams": 118.0,
+          "quantity": 1.0
+        },
+        {
+          "name": "cup, mashed",
+          "grams": 225.0,
+          "quantity": 1.0
+        }
+      ]
+    },
+    {
+      "id": "usda-2705385",
+      "sourceId": "2705385",
+      "source": "usda-fndds",
+      "description": "Milk, whole",
+      "aliases": [
+        "milk",
+        "whole milk"
+      ],
+      "nutrition": {
+        "kcal": 61.0,
+        "protein": 3.27,
+        "carbs": 4.63,
+        "fat": 3.2,
+        "fiber": 0.0,
+        "sugar": 4.81,
+        "sodium": 38.0
+      },
+      "category": "Milk, whole",
+      "portions": [
+        {
+          "name": "Guideline amount per fl oz of beverage",
+          "grams": 2.5,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 244,
+          "quantity": 1
+        },
+        {
+          "name": "1 individual school container",
+          "grams": 244,
+          "quantity": 1
+        },
+        {
+          "name": "1 cup",
+          "grams": 244,
+          "quantity": 1
+        },
+        {
+          "name": "Guideline amount per cup of hot cereal",
+          "grams": 61,
+          "quantity": 1
+        },
+        {
+          "name": "1 fl oz",
+          "grams": 30.5,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2705740",
+      "sourceId": "2705740",
+      "source": "usda-fndds",
+      "description": "Cheese, paneer",
+      "aliases": [
+        "paneer"
+      ],
+      "nutrition": {
+        "kcal": 299,
+        "protein": 15.9,
+        "carbs": 22.5,
+        "fat": 15.5,
+        "fiber": 0.0,
+        "sugar": 23.3,
+        "sodium": 185
+      },
+      "category": "Cheese",
+      "portions": [
+        {
+          "name": "1 cup",
+          "grams": 246,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 123,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2707381",
+      "sourceId": "2707381",
+      "source": "usda-fndds",
+      "description": "Kidney beans, from dried, no added fat",
+      "aliases": [
+        "cooked kidney beans"
+      ],
+      "nutrition": {
+        "kcal": 126,
+        "protein": 8.62,
+        "carbs": 22.7,
+        "fat": 0.5,
+        "fiber": 7.4,
+        "sugar": 0.32,
+        "sodium": 233
+      },
+      "category": "Beans, peas, legumes",
+      "portions": [
+        {
+          "name": "1 oz dry, yield after cooking",
+          "grams": 70,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 90,
+          "quantity": 1
+        },
+        {
+          "name": "1 cup",
+          "grams": 180,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2707430",
+      "sourceId": "2707430",
+      "source": "usda-fndds",
+      "description": "Sambar, vegetable stew",
+      "aliases": [
+        "sambar"
+      ],
+      "nutrition": {
+        "kcal": 86.0,
+        "protein": 4.33,
+        "carbs": 11.8,
+        "fat": 2.71,
+        "fiber": 4.0,
+        "sugar": 1.97,
+        "sodium": 207
+      },
+      "category": "Vegetable dishes",
+      "portions": [
+        {
+          "name": "1 cup",
+          "grams": 248,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 124,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2707599",
+      "sourceId": "2707599",
+      "source": "usda-fndds",
+      "description": "Bread, white, toasted",
+      "aliases": [
+        "bread toast",
+        "toast"
+      ],
+      "nutrition": {
+        "kcal": 293,
+        "protein": 10.4,
+        "carbs": 54.1,
+        "fat": 3.94,
+        "fiber": 2.5,
+        "sugar": 5.87,
+        "sodium": 495
+      },
+      "category": "Yeast breads",
+      "portions": [
+        {
+          "name": "1 cup",
+          "grams": 40,
+          "quantity": 1
+        },
+        {
+          "name": "1 cubic inch",
+          "grams": 3.9,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 25,
+          "quantity": 1
+        },
+        {
+          "name": "1 slice, snack-size",
+          "grams": 9,
+          "quantity": 1
+        },
+        {
+          "name": "1 small or thin/very thin slice",
+          "grams": 22,
+          "quantity": 1
+        },
+        {
+          "name": "1 slice, crust not eaten",
+          "grams": 12,
+          "quantity": 1
+        },
+        {
+          "name": "1 large or thick slice",
+          "grams": 39,
+          "quantity": 1
+        },
+        {
+          "name": "1 medium or regular slice",
+          "grams": 25,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2707713",
+      "sourceId": "2707713",
+      "source": "usda-fndds",
+      "description": "Bread, chappatti or roti",
+      "aliases": [
+        "roti",
+        "chapati",
+        "chappatti"
+      ],
+      "nutrition": {
+        "kcal": 299,
+        "protein": 7.85,
+        "carbs": 46.1,
+        "fat": 9.2,
+        "fiber": 9.7,
+        "sugar": 2.93,
+        "sodium": 298
+      },
+      "category": "Yeast breads",
+      "portions": [
+        {
+          "name": "1 surface inch",
+          "grams": 1,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 40,
+          "quantity": 1
+        },
+        {
+          "name": "1 large chappatti or roti (8\")",
+          "grams": 52,
+          "quantity": 1
+        },
+        {
+          "name": "1 medium chappatti or roti (7\")",
+          "grams": 40,
+          "quantity": 1
+        },
+        {
+          "name": "1 small chappatti or roti (6\")",
+          "grams": 27,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2707841",
+      "sourceId": "2707841",
+      "source": "usda-fndds",
+      "description": "Muffin, plain",
+      "aliases": [
+        "muffin",
+        "plain muffin"
+      ],
+      "nutrition": {
+        "kcal": 374,
+        "protein": 5.93,
+        "carbs": 52.0,
+        "fat": 16.2,
+        "fiber": 0.8,
+        "sugar": 27.5,
+        "sodium": 358
+      },
+      "category": "Biscuits, muffins, quick breads",
+      "portions": [
+        {
+          "name": "1 small",
+          "grams": 70,
+          "quantity": 1
+        },
+        {
+          "name": "1 miniature",
+          "grams": 25,
+          "quantity": 1
+        },
+        {
+          "name": "1 medium",
+          "grams": 130,
+          "quantity": 1
+        },
+        {
+          "name": "1 bite size",
+          "grams": 10,
+          "quantity": 1
+        },
+        {
+          "name": "1 large",
+          "grams": 180,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 130,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2708346",
+      "sourceId": "2708346",
+      "source": "usda-fndds",
+      "description": "Idli",
+      "aliases": [
+        "idli"
+      ],
+      "nutrition": {
+        "kcal": 128,
+        "protein": 6.36,
+        "carbs": 25.0,
+        "fat": 0.35,
+        "fiber": 5.8,
+        "sugar": 1.85,
+        "sodium": 252
+      },
+      "category": "Rice mixed dishes",
+      "portions": [
+        {
+          "name": "1 item",
+          "grams": 38,
+          "quantity": 1
+        },
+        {
+          "name": "1 surface inch",
+          "grams": 9.8,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 76,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2708616",
+      "sourceId": "2708616",
+      "source": "usda-fndds",
+      "description": "Pizza, cheese, from restaurant or fast food, medium crust",
+      "aliases": [
+        "cheese pizza",
+        "margherita pizza"
+      ],
+      "nutrition": {
+        "kcal": 266,
+        "protein": 11.4,
+        "carbs": 33.3,
+        "fat": 9.69,
+        "fiber": 2.3,
+        "sugar": 3.58,
+        "sodium": 540
+      },
+      "category": "Pizza",
+      "portions": [
+        {
+          "name": "1 piece, medium pizza",
+          "grams": 86,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 238,
+          "quantity": 1
+        },
+        {
+          "name": "1 medium pizza (11-12\" diameter)",
+          "grams": 691,
+          "quantity": 1
+        },
+        {
+          "name": "1 piece, small pizza",
+          "grams": 80,
+          "quantity": 1
+        },
+        {
+          "name": "1 piece, NFS",
+          "grams": 119,
+          "quantity": 1
+        },
+        {
+          "name": "1 piece, large pizza",
+          "grams": 119,
+          "quantity": 1
+        },
+        {
+          "name": "1 personal size pizza (5-7\" diameter)",
+          "grams": 175,
+          "quantity": 1
+        },
+        {
+          "name": "1 large pizza (13-15\" diameter)",
+          "grams": 954,
+          "quantity": 1
+        },
+        {
+          "name": "1 extra-large pizza (16-18\" diameter)",
+          "grams": 1278,
+          "quantity": 1
+        },
+        {
+          "name": "1 piece, extra-large pizza",
+          "grams": 128,
+          "quantity": 1
+        },
+        {
+          "name": "1 surface inch",
+          "grams": 6.2,
+          "quantity": 1
+        },
+        {
+          "name": "1 small pizza (8-10\" diameter)",
+          "grams": 480,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2708730",
+      "sourceId": "2708730",
+      "source": "usda-fndds",
+      "description": "Samosa",
+      "aliases": [
+        "samosa"
+      ],
+      "nutrition": {
+        "kcal": 310,
+        "protein": 5.14,
+        "carbs": 33.2,
+        "fat": 17.5,
+        "fiber": 1.8,
+        "sugar": 1.28,
+        "sodium": 388
+      },
+      "category": "Turnovers and other grain-based items",
+      "portions": [
+        {
+          "name": "1 small/individual",
+          "grams": 25,
+          "quantity": 1
+        },
+        {
+          "name": "1 regular/large",
+          "grams": 100,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 75,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2708985",
+      "sourceId": "2708985",
+      "source": "usda-fndds",
+      "description": "Biryani with vegetables",
+      "aliases": [
+        "vegetable biryani",
+        "veg biryani"
+      ],
+      "nutrition": {
+        "kcal": 109,
+        "protein": 1.93,
+        "carbs": 17.9,
+        "fat": 3.2,
+        "fiber": 1.2,
+        "sugar": 1.18,
+        "sodium": 177
+      },
+      "category": "Rice mixed dishes",
+      "portions": [
+        {
+          "name": "Quantity not specified",
+          "grams": 215,
+          "quantity": 1
+        },
+        {
+          "name": "1 cup",
+          "grams": 172,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2709422",
+      "sourceId": "2709422",
+      "source": "usda-fndds",
+      "description": "Potato chips, plain",
+      "aliases": [
+        "potato chips",
+        "plain potato chips"
+      ],
+      "nutrition": {
+        "kcal": 532,
+        "protein": 6.39,
+        "carbs": 53.8,
+        "fat": 34.0,
+        "fiber": 3.1,
+        "sugar": 0.33,
+        "sodium": 527
+      },
+      "category": "Potato chips",
+      "portions": [
+        {
+          "name": "1 cup",
+          "grams": 25,
+          "quantity": 1
+        },
+        {
+          "name": "1 chip",
+          "grams": 2,
+          "quantity": 1
+        },
+        {
+          "name": "1 medium single serving bag",
+          "grams": 57,
+          "quantity": 1
+        },
+        {
+          "name": "1 100 calorie package",
+          "grams": 18,
+          "quantity": 1
+        },
+        {
+          "name": "1 small single serving bag",
+          "grams": 28,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 28,
+          "quantity": 1
+        },
+        {
+          "name": "1 large single serving bag",
+          "grams": 85,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2709458",
+      "sourceId": "2709458",
+      "source": "usda-fndds",
+      "description": "Potato, french fries, from fresh, fried",
+      "aliases": [
+        "french fries",
+        "french fry",
+        "potato wedges"
+      ],
+      "nutrition": {
+        "kcal": 198,
+        "protein": 1.93,
+        "carbs": 18.5,
+        "fat": 13.1,
+        "fiber": 1.6,
+        "sugar": 1.25,
+        "sodium": 141
+      },
+      "category": "French fries and other fried white potatoes",
+      "portions": [
+        {
+          "name": "1 waffle",
+          "grams": 8,
+          "quantity": 1
+        },
+        {
+          "name": "1 oz, raw, yields",
+          "grams": 15,
+          "quantity": 1
+        },
+        {
+          "name": "1 fry, NS as to shape",
+          "grams": 5,
+          "quantity": 1
+        },
+        {
+          "name": "1 shoestring",
+          "grams": 2,
+          "quantity": 1
+        },
+        {
+          "name": "1 spiral or curly",
+          "grams": 8,
+          "quantity": 1
+        },
+        {
+          "name": "1 crinkle cut",
+          "grams": 5,
+          "quantity": 1
+        },
+        {
+          "name": "1 wedge",
+          "grams": 9,
+          "quantity": 1
+        },
+        {
+          "name": "1 medium, raw, yields",
+          "grams": 70,
+          "quantity": 1
+        },
+        {
+          "name": "1 straight cut",
+          "grams": 5,
+          "quantity": 1
+        },
+        {
+          "name": "1 cup",
+          "grams": 60,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 110,
+          "quantity": 1
+        },
+        {
+          "name": "1 small, raw, yields",
+          "grams": 50,
+          "quantity": 1
+        },
+        {
+          "name": "1 large, raw, yields",
+          "grams": 100,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2709910",
+      "sourceId": "2709910",
+      "source": "usda-fndds",
+      "description": "Corn, fresh, cooked, no added fat",
+      "aliases": [
+        "boiled corn",
+        "corn"
+      ],
+      "nutrition": {
+        "kcal": 86.0,
+        "protein": 3.26,
+        "carbs": 18.6,
+        "fat": 1.35,
+        "fiber": 2.0,
+        "sugar": 6.24,
+        "sodium": 131
+      },
+      "category": "Corn",
+      "portions": [
+        {
+          "name": "1 regular ear",
+          "grams": 105,
+          "quantity": 1
+        },
+        {
+          "name": "1 mini ear",
+          "grams": 55,
+          "quantity": 1
+        },
+        {
+          "name": "1 cup",
+          "grams": 165,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 83,
+          "quantity": 1
+        },
+        {
+          "name": "1 baby corn",
+          "grams": 8,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2710375",
+      "sourceId": "2710375",
+      "source": "usda-fndds",
+      "description": "Coffee, brewed",
+      "aliases": [
+        "brewed coffee"
+      ],
+      "nutrition": {
+        "kcal": 1.0,
+        "protein": 0.12,
+        "carbs": 0.0,
+        "fat": 0.02,
+        "fiber": 0.0,
+        "sugar": 0.0,
+        "sodium": 2.0
+      },
+      "category": "Coffee",
+      "portions": [
+        {
+          "name": "1 fl oz",
+          "grams": 30,
+          "quantity": 1
+        },
+        {
+          "name": "1 large pot (60 FO, 12 servings)",
+          "grams": 1800,
+          "quantity": 1
+        },
+        {
+          "name": "1 small",
+          "grams": 360,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 360,
+          "quantity": 1
+        },
+        {
+          "name": "1 medium",
+          "grams": 480,
+          "quantity": 1
+        },
+        {
+          "name": "1 cup (8 fl oz)",
+          "grams": 240,
+          "quantity": 1
+        },
+        {
+          "name": "1 large",
+          "grams": 600,
+          "quantity": 1
+        },
+        {
+          "name": "1 small pot (20 FO, 4 servings)",
+          "grams": 600,
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "usda-2710707",
+      "sourceId": "2710707",
+      "source": "usda-fndds",
+      "description": "Water, tap",
+      "aliases": [
+        "water"
+      ],
+      "nutrition": {
+        "kcal": 0.0,
+        "protein": 0.0,
+        "carbs": 0.0,
+        "fat": 0.0,
+        "fiber": 0.0,
+        "sugar": 0.0,
+        "sodium": 4.0
+      },
+      "category": "Tap water",
+      "portions": [
+        {
+          "name": "1 cup ice",
+          "grams": 110,
+          "quantity": 1
+        },
+        {
+          "name": "1 bottle (24 fl oz) filled with tap water",
+          "grams": 720,
+          "quantity": 1
+        },
+        {
+          "name": "1 bottle (16.9 fl oz) filled with tap water",
+          "grams": 507,
+          "quantity": 1
+        },
+        {
+          "name": "1 ice cube",
+          "grams": 20,
+          "quantity": 1
+        },
+        {
+          "name": "Guideline amount if from a water fountain",
+          "grams": 60,
+          "quantity": 1
+        },
+        {
+          "name": "1 cup",
+          "grams": 240,
+          "quantity": 1
+        },
+        {
+          "name": "1 fl oz",
+          "grams": 30,
+          "quantity": 1
+        },
+        {
+          "name": "Quantity not specified",
+          "grams": 360,
+          "quantity": 1
+        }
+      ]
+    }
+  ]
+}

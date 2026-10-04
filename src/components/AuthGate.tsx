@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import LoginForm from "./LoginForm";
 import MealDashboard from "./MealDashboard";
 
@@ -35,6 +36,6 @@ export default function AuthGate() {
 
   if (state.kind === "loading") return <main role="status" aria-live="polite" style={{ padding: 24 }}>Loading Mealio…</main>;
   if (state.kind === "unauthenticated") return <LoginForm onSuccess={check} />;
-  if (state.kind === "unavailable") return <main role="alert" style={{ padding: 24 }}><p>Service temporarily unavailable.</p><button type="button" onClick={check}>Retry</button></main>;
+  if (state.kind === "unavailable") return <main role="alert" style={{ padding: 24 }}><p>Service temporarily unavailable.</p><button type="button" onClick={check}>Retry</button><p><Link href="/nutrition">Open offline food estimator</Link></p></main>;
   return <MealDashboard username={state.username} timezone={state.timezone} onLogout={() => setState({ kind: "unauthenticated" })} />;
 }

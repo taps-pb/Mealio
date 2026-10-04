@@ -1,0 +1,152 @@
+{
+  "databaseVersion": "1-d6bd010519cf7374",
+  "generatedAt": "2026-10-04T00:00:00.000Z",
+  "sources": [
+    {
+      "id": "usda-fndds",
+      "name": "USDA FNDDS",
+      "version": "2021-2023 (2024-10-31)",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://fdc.nal.usda.gov/",
+      "retrieved": "2026-10-04",
+      "transformation": "scripts/import-usda.py",
+      "recordsImported": 16,
+      "sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+      "rawBytes": 3835292
+    },
+    {
+      "id": "usda-sr",
+      "name": "USDA SR Legacy",
+      "version": "2018-04",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_json_2018-04.zip",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://fdc.nal.usda.gov/",
+      "retrieved": "2026-10-04",
+      "transformation": "scripts/import-usda.py",
+      "recordsImported": 18,
+      "sha256": "0fe8ae486a2c8eb42cb96413f058deb51863a46c8fb8eeb4b1fb45006dd338ef",
+      "rawBytes": 13456312
+    },
+    {
+      "id": "off",
+      "name": "Open Food Facts",
+      "version": "2026-10-04 reviewed subset; reviewed labels v1",
+      "url": "https://world.openfoodfacts.org/data",
+      "license": "ODbL-1.0 / DbCL-1.0",
+      "licenseUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
+      "retrieved": "2026-10-04",
+      "transformation": "scripts/import-openfoodfacts.py",
+      "recordsImported": 12,
+      "sha256": "54926611f8218758efc4d41e15162eb6bd7f649795e614bbd2eb72e4ef47c121",
+      "rawBytes": 22776
+    },
+    {
+      "id": "subway-in",
+      "name": "Subway India official nutrition",
+      "version": "August 2026",
+      "retrieved": "2026-10-04",
+      "url": "https://qnet.blob.core.windows.net/central/Nutritional%20Allergen%20Chart%20-%20August%202026%20-%201786080088269.pdf",
+      "license": "Factual nutrition excerpt; original document copyright retained by Subway (no open license asserted)",
+      "licenseUrl": "https://subway.in/nutrition-allergen-info",
+      "transformation": "scripts/build-food-db.ts (reviewed fact transcription)",
+      "recordsImported": 4,
+      "sha256": "f8dd4a1c76d32c291e554aacb5e6fc932922ab66612461681d620af7d793ac13",
+      "rawBytes": 839965
+    },
+    {
+      "id": "coca-cola-in",
+      "name": "Coca-Cola India official Sprite label",
+      "version": "retrieved 2026-10-04",
+      "retrieved": "2026-10-04",
+      "url": "https://www.coca-cola.com/in/en/brands/sprite",
+      "license": "Factual nutrition excerpt; original website copyright retained by Coca-Cola (no open license asserted)",
+      "licenseUrl": "https://www.coca-cola.com/in/en/brands/sprite",
+      "transformation": "scripts/build-food-db.ts (reviewed fact transcription)",
+      "recordsImported": 1,
+      "sha256": "5ad5ab085c95657d1c585339615028f9f445ea0e52b79243afa7d73be734c02c",
+      "rawBytes": 148459
+    },
+    {
+      "id": "mealio",
+      "name": "Mealio defined recipes and portions",
+      "version": "1",
+      "url": "https://github.com/taps-pb/Mealio/tree/main/data",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "retrieved": "2026-10-04",
+      "transformation": "scripts/build-food-db.ts",
+      "recordsImported": 15,
+      "sha256": "80c95891ed10d3f6ab42340f924da37161c7fc1d9b6c4ba39fd328ee128c8c6f",
+      "rawBytes": 4975
+    }
+  ],
+  "reviewedLabelEvidence": {
+    "version": 1,
+    "retrieved": "2026-10-04",
+    "license": "ODbL-1.0 / DbCL-1.0 facts from Open Food Facts packaging evidence; photographs not redistributed",
+    "records": [
+      {
+        "barcode": "8901491435109",
+        "url": "https://images.openfoodfacts.org/images/products/890/149/143/5109/nutrition_en.22.full.jpg",
+        "sha256": "1270526cff986996115b395c522f7544f4b432ee3a0b9d8ec97bc0aaec82fb2c",
+        "rawBytes": 946725,
+        "basis": "g",
+        "nutrition": {
+          "kcal": 536,
+          "protein": 6.8,
+          "carbs": 54.2,
+          "fat": 32.4,
+          "fiber": null,
+          "sugar": 1.2,
+          "sodium": 897
+        },
+        "reason": "Reviewed actual package image: per-100-g column gives 536 kcal, 6.8 g protein, 54.2 g carbohydrate, 32.4 g fat. The API's 670 kcal/120 g macro-mass profile is inconsistent and is superseded only by this explicit label evidence."
+      },
+      {
+        "barcode": "8901063029415",
+        "url": "https://images.openfoodfacts.org/images/products/890/106/302/9415/nutrition_en.10.full.jpg",
+        "sha256": "dfc45c08d9a5d6fe4a3c3b5c64f2e04c64d52bab5346596889a041a7f1f91a67",
+        "rawBytes": 80671,
+        "basis": "g",
+        "nutrition": {
+          "kcal": 483,
+          "protein": 5,
+          "carbs": 73,
+          "fat": 19,
+          "fiber": null,
+          "sugar": 32.9,
+          "sodium": 211
+        },
+        "pieceGrams": 12.5,
+        "reason": "Reviewed India label explicitly identifies serving size 12.5 g (1 biscuit), with per-100-g nutrition. A different 92 g export record had conflicting serving data and was not selected."
+      }
+    ]
+  },
+  "sourceRuntimeBytes": {
+    "usda-fndds": 17626,
+    "usda-sr": 14821,
+    "off": 13761,
+    "subway-in": 5485,
+    "coca-cola-in": 882,
+    "mealio": 27055
+  },
+  "counts": {
+    "foods": 66,
+    "aliases": 152,
+    "portions": 60,
+    "recipes": 15,
+    "products": 13,
+    "restaurantItems": 4
+  },
+  "sizes": {
+    "rawSourceBytes": 19335175,
+    "normalizedInputBytes": 74967,
+    "normalizedBytes": 82207,
+    "gzipBytes": 12440
+  },
+  "sha256": "1745a4f45d2dfa62c8e42a87904e73660230ddd728ed9ac53088d05b2200d5ac",
+  "warnings": [
+    "8901491435109: macro mass exceeds 100g; explicit reviewed package-label values used"
+  ]
+}

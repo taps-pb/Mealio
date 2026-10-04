@@ -19,6 +19,8 @@ playwright-report/
 *.sqlite
 .secrets/
 dataset/
+data/raw/
+public/nutrition/sw.js
 worktree/
 android/build/
 android/build.*/
@@ -27,5 +29,9 @@ __pycache__/
 .DS_Store
 *.dump.age
 *.dump.age.sha256
+*.json.age
+*.json.age.sha256
+*.json.age.receipt.json
+*food-library.json
 age-identity.txt
 neon-direct-url.txt

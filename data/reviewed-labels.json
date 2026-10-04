@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "retrieved": "2026-10-04",
+  "license": "ODbL-1.0 / DbCL-1.0 facts from Open Food Facts packaging evidence; photographs not redistributed",
+  "records": [
+    {
+      "barcode": "8901491435109",
+      "url": "https://images.openfoodfacts.org/images/products/890/149/143/5109/nutrition_en.22.full.jpg",
+      "sha256": "1270526cff986996115b395c522f7544f4b432ee3a0b9d8ec97bc0aaec82fb2c",
+      "rawBytes": 946725,
+      "basis": "g",
+      "nutrition": {"kcal": 536, "protein": 6.8, "carbs": 54.2, "fat": 32.4, "fiber": null, "sugar": 1.2, "sodium": 897},
+      "reason": "Reviewed actual package image: per-100-g column gives 536 kcal, 6.8 g protein, 54.2 g carbohydrate, 32.4 g fat. The API's 670 kcal/120 g macro-mass profile is inconsistent and is superseded only by this explicit label evidence."
+    },
+    {
+      "barcode": "8901063029415",
+      "url": "https://images.openfoodfacts.org/images/products/890/106/302/9415/nutrition_en.10.full.jpg",
+      "sha256": "dfc45c08d9a5d6fe4a3c3b5c64f2e04c64d52bab5346596889a041a7f1f91a67",
+      "rawBytes": 80671,
+      "basis": "g",
+      "nutrition": {"kcal": 483, "protein": 5, "carbs": 73, "fat": 19, "fiber": null, "sugar": 32.9, "sodium": 211},
+      "pieceGrams": 12.5,
+      "reason": "Reviewed India label explicitly identifies serving size 12.5 g (1 biscuit), with per-100-g nutrition. A different 92 g export record had conflicting serving data and was not selected."
+    }
+  ]
+}
