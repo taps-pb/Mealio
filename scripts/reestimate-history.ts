@@ -66,7 +66,7 @@ async function main() {
       if (saved.format !== "mealio-history-reestimate-v1") throw new Error("Unrecognized revision format");
       const reverse = { ...saved.plan, before: saved.plan.after, after: saved.plan.before, pending: [] };
       if (!apply) { console.log(JSON.stringify({ mode: "restore-preview", meals: reverse.changedIds.length })); return; }
-      await sql.begin("serializable", async (tx) => { await tx`set local timezone='UTC'`; await applyHistoryPlan(adapter(tx), reverse, true); });
+      await sql.begin("isolation level serializable", async (tx) => { await tx`set local timezone='UTC'`; await applyHistoryPlan(adapter(tx), reverse, true); });
       console.log(JSON.stringify({ mode: "restored", restoredMeals: reverse.changedIds.length, totalMeals: reverse.after.length })); return;
     }
     const libraryPath = option("--library");
@@ -88,7 +88,7 @@ async function main() {
     let revision: string | undefined;
     if (apply && plan.changedIds.length) {
       revision = archive(plan, library, updatedAt);
-      await sql.begin("serializable", async (tx) => {
+      await sql.begin("isolation level serializable", async (tx) => {
         await tx`set local timezone='UTC'`;
         await applyHistoryPlan(adapter(tx), plan, args.includes("--require-all"));
       });
