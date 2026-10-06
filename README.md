@@ -16,7 +16,9 @@ The browser parses food text, resolves local names/aliases/restaurant variants, 
 
 Open **`/nutrition` once while online** and wait for “Ready for offline use”. This caches the public estimator shell for offline reloads. Estimation itself never needs networking, including in the usual authenticated meal editor. Login, saving meals, history and PDFs retain their existing online behavior. The `/api/estimate` endpoint is retired (HTTP 410).
 
-Use **My local foods & recipes** to teach foods and recipes, remember ambiguous phrases, forget mappings or export/import the device's library. The library persists in browser storage, is not uploaded, and is shared between `/nutrition` and the journal on that device. Clearing browser storage removes it. Existing reviewed meal corrections can be explicitly imported from loaded history; nothing is silently copied or rewritten.
+Use **My foods & recipes** to open the dedicated `/foods` library. Food creation, recipe creation and backup/reset controls have separate screens; the Add Meal editor keeps only current-meal estimation, corrections and review. The library persists in browser storage, is not uploaded, and is shared between `/nutrition` and the journal on that device. Clearing browser storage removes it. Existing reviewed meal corrections can be explicitly imported from loaded history through **Library settings**; nothing is silently copied or rewritten. Attribution is available under **About Mealio → Data sources & licenses**.
+
+The public library screens are included in the offline shell. Unsaved meal text, nutrients, timestamps and temporary interpretations are preserved in tab-local session storage when visiting the library. See [library UI architecture and verification](docs/library-ui.md).
 
 See [migration architecture, sources and build instructions](docs/offline-nutrition.md), [exact corpus interpretations](docs/nutrition-corpus.md), and [dataset attribution](public/nutrition/ATTRIBUTION.md).
 

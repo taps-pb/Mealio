@@ -4,7 +4,7 @@ import nextTypescript from "eslint-config-next/typescript";
 const eslintConfig = [
   ...nextVitals,
   ...nextTypescript,
-  { ignores: [".next/**", "node_modules/**", "out/**", "drizzle/**", "data/raw/**", "public/nutrition/sw.js"] },
+  { ignores: [".next/**", "node_modules/**", "out/**", "drizzle/**", "data/raw/**", "public/nutrition/sw.js", "test-results/**", "playwright-report/**"] },
 ];
 
 export default eslintConfig;

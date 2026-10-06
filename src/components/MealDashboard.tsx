@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type SetStateAction } from "react";
 import { formatCalories } from "@/lib/formatCalories";
 import type { MealItemSnapshot as Snapshot } from "@/server/db/schema";
 import type { Estimate } from "@/lib/nutrition/types";
 import { toSnapshots } from "@/lib/nutrition/snapshots";
+import { useSessionState } from "@/lib/useSessionState";
+import { snapshotSchema } from "@/server/meals/validation";
+import ThemeToggle from "./ThemeToggle";
 import LocalEstimator from "./LocalEstimator";
 import HistoryPanel from "./HistoryPanel";
 import MealRing from "./MealRing";
 import { dayTitle, groupForDay, stepDayKey } from "./daySelection";
+import { mealEntryTime } from "./mealEntryTime";
 import styles from "./MealDashboard.module.css";
 
 type Macro = { kcal: number; protein: number; carbs: number; fat?: number | null };
@@ -19,8 +23,20 @@ type Draft = {
   kcal: string; protein: string; carbs: string; fat: string; items: Snapshot[]; provenance: Meal["provenance"];
 };
 type View = "today" | "history" | "entry" | "review" | "details";
+type JournalSession = { draft: Draft | null; view: View };
+const initialSession: JournalSession = { draft: null, view: "today" };
+function isSession(value: unknown): value is JournalSession {
+  if (!value || typeof value !== "object" || !("view" in value) || !("draft" in value) || !["today", "history", "entry", "review", "details"].includes(String(value.view))) return false;
+  if (value.draft === null) return value.view !== "entry" && value.view !== "review";
+  const draft = value.draft as Draft;
+  return !!draft && typeof draft === "object" && ["key", "description", "eatenAt", "kcal", "protein", "carbs", "fat"].every((key) => typeof draft[key as keyof Draft] === "string") &&
+    (draft.id === null || typeof draft.id === "string") && (draft.originalEatenAt === null || typeof draft.originalEatenAt === "string") && typeof draft.timeChanged === "boolean" &&
+    ["manual", "estimated", "corrected"].includes(draft.provenance) && snapshotSchema.array().safeParse(draft.items).success;
+}
 const pad = (number: number) => String(number).padStart(2, "0");
 const localInput = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+const newDraft = (): Draft => ({ id: null, key: crypto.randomUUID(), description: "", eatenAt: localInput(new Date()), originalEatenAt: null,
+  timeChanged: true, kcal: "", protein: "", carbs: "", fat: "", items: [], provenance: "manual" });
 const round2 = (number: number) => Math.round(number * 100) / 100;
 const sourceLabel = (source: Snapshot["source"]) => ({ usda: "USDA reference", indb: "INDB reference recipe",
   manual: "Your correction", unmatched: "No verified reference", recipe_estimate: "Ingredient-based recipe estimate",
@@ -52,19 +68,26 @@ const SnapshotInfo = ({ item }: { item: Snapshot }) => <div className={styles.sn
 </div>;
 
 export default function MealDashboard({ username, timezone, onLogout }: { username: string; timezone: string; onLogout: () => void }) {
-  const descriptionId = useId();
-  const [view, setView] = useState<View>("today");
+  const descriptionId = useId(), nutritionId = useId(), timeId = useId();
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const journal = useSessionState("mealio-journal-draft", initialSession, isSession);
+  const { view, draft } = journal.value;
+  const setSession = journal.setValue;
+  const setView = useCallback((view: View) => setSession((current) => ({ ...current, view })), [setSession]);
+  const setDraft = useCallback((next: SetStateAction<Draft | null>) => setSession((current) => ({ ...current,
+    draft: typeof next === "function" ? next(current.draft) : next })), [setSession]);
+  const navigationApplied = useRef(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailsFrom, setDetailsFrom] = useState<"today" | "history">("today");
   const [groups, setGroups] = useState<DayGroup[]>([]);
   const [todayKey, setTodayKey] = useState("");
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false), [timeOpen, setTimeOpen] = useState(false);
+  const [estimating, setEstimating] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +97,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
       const data: { todayKey: string; groups: DayGroup[] } = await response.json();
       setTodayKey(data.todayKey);
       setGroups(data.groups);
+      try { sessionStorage.setItem("mealio-reviewed-snapshots", JSON.stringify(data.groups.flatMap((group) => group.meals.flatMap((meal) => meal.itemSnapshots)))); } catch { /* The journal still works when tab storage is unavailable. */ }
       setLoaded(true);
       setError("");
     } catch { setLoaded(true); setError("Could not load meals. Try again."); }
@@ -91,25 +115,35 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     return () => document.removeEventListener("visibilitychange", refreshVisibleDay);
   }, [load, view]);
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setDark(localStorage.getItem("mealio-theme") === "dark"));
+    if (!journal.ready || navigationApplied.current) return;
+    const frame = requestAnimationFrame(() => {
+      navigationApplied.current = true;
+      const screen = new URLSearchParams(location.search).get("screen");
+      if (screen === "entry") setSession((current) => ({ view: "entry", draft: current.draft ?? newDraft() }));
+      if (screen === "today" || screen === "history") setView(screen);
+      if (screen) history.replaceState(history.state, "", location.pathname);
+    });
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [journal.ready, setSession, setView]);
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-  }, [dark]);
+    const input = descriptionRef.current;
+    if (!input || view !== "entry") return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(196, Math.max(88, input.scrollHeight))}px`;
+  }, [draft?.description, view]);
 
   const displayedDayKey = selectedDayKey ?? todayKey;
   const displayedDay = groupForDay(groups, displayedDayKey);
   const displayedTitle = dayTitle(displayedDayKey, todayKey);
   const changeView = (next: View) => {
     if (draft && !window.confirm("Discard your unsaved meal changes?")) return false;
-    setDraft(null); setError(""); setView(next);
+    setDraft(null); setEstimating(false); setError(""); setView(next);
     return true;
   };
   const startNew = () => {
     if (draft && !window.confirm("Discard your unsaved meal changes?")) return;
-    setDraft({ id: null, key: crypto.randomUUID(), description: "", eatenAt: localInput(new Date()), originalEatenAt: null,
-      timeChanged: true, kcal: "", protein: "", carbs: "", fat: "", items: [], provenance: "manual" });
+    setDraft(newDraft());
+    setManualOpen(false); setTimeOpen(false); setEstimating(false);
     setError(""); setView("entry");
   };
   const startEdit = (meal: Meal) => {
@@ -117,7 +151,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
       originalEatenAt: meal.eatenAt, timeChanged: false, kcal: String(meal.kcal), protein: String(meal.protein),
       carbs: String(meal.carbs), fat: meal.fat == null ? "" : String(meal.fat),
       items: meal.itemSnapshots.map((item) => ({ ...item, portionEdited: false })), provenance: meal.provenance });
-    setError(""); setView("entry");
+    setManualOpen(false); setTimeOpen(false); setEstimating(false); setError(""); setView("entry");
   };
 
   function applyEstimate(result: Estimate) {
@@ -133,7 +167,8 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
         provenance: current.provenance === "corrected" || (current.provenance === "manual" &&
           (current.kcal || current.protein || current.carbs || current.fat)) ? "corrected" : "estimated",
       } : null);
-      setError(result.incomplete ? "Some foods or portions need clarification. Choose local candidates or enter nutrition manually." : "");
+       setError("");
+       if (!result.incomplete && result.totals) { setManualOpen(false); setTimeOpen(false); setView("review"); }
   }
 
   function updateItem(index: number, patch: Partial<Snapshot>) {
@@ -212,7 +247,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     }
     const instant = new Date(draft.eatenAt);
     if (!draft.eatenAt || !Number.isFinite(instant.getTime()) || localInput(instant) !== draft.eatenAt) {
-      setError("Choose a valid device-local date and time."); return null;
+      setError("Choose a valid date and time."); return null;
     }
     const fat = draft.fat.trim() === "" ? null : Number(draft.fat);
     if (fat !== null && (!Number.isFinite(fat) || fat < 0 || fat > 99_999_999.99 || Math.abs(fat * 100 - Math.round(fat * 100)) > .00001)) {
@@ -234,6 +269,7 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
       if (response.status === 401) { onLogout(); return; }
       if (response.status === 409) { setError("This save key was used for a different meal. Reload history before retrying."); return; }
       if (!response.ok) { setError("Save failed. Your entry is still here; try again."); return; }
+      try { sessionStorage.removeItem(`mealio-estimator:${draft.key || draft.id}`); } catch { /* Saved server data is unaffected. */ }
       setDraft(null); setView("today"); await load();
     } catch { setError("Save failed. Your entry is still here; try again."); }
     finally { setBusy(false); }
@@ -255,12 +291,17 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     try {
       const response = await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
       if (!response.ok) { setError("Could not log out. Try again."); return; }
+      journal.clear();
+      try { sessionStorage.removeItem("mealio-reviewed-snapshots"); } catch { /* No history is stored in the local food library. */ }
       onLogout();
     } catch { setError("Could not log out. Try again."); }
     finally { setBusy(false); }
   }
 
   const detailMeal = groups.flatMap((group) => group.meals).find((meal) => meal.id === detailId);
+  const mealEntry = view === "entry" || view === "review";
+  const hasNutrition = !!draft && [draft.kcal, draft.protein, draft.carbs].every((value) => value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0);
+  const canReview = hasNutrition && !!draft?.description.trim();
   const renderMeal = (meal: Meal) => <article key={meal.id} className={styles.meal}>
     <span className={styles.mealIcon} aria-hidden="true">✦</span>
     <div className={styles.mealCopy}><strong>{meal.description}</strong><small>{new Date(meal.eatenAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: timezone })} · P {meal.protein}g · C {meal.carbs}g{meal.fat == null ? "" : ` · F ${meal.fat}g`}</small>{meal.itemSnapshots.some((item) => item.uncertainty) && <small>Contains uncertain items</small>}</div>
@@ -269,10 +310,10 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
     {deleteId === meal.id && <div className={styles.confirm}><span>Delete {meal.description}?</span><button type="button" disabled={busy} onClick={() => void remove(meal.id)}>Yes, delete</button><button type="button" onClick={() => setDeleteId(null)}>Cancel</button></div>}
   </article>;
 
-  return <main className={styles.app}>
-    <header className={styles.header}><div><span className={styles.eyebrow}>YOUR MEAL JOURNAL · {username}</span><h1>Mealio<span>.</span></h1></div><div className={styles.headerActions}><button type="button" aria-label={`Switch to ${dark ? "light" : "dark"} mode`} onClick={() => { const next = !dark; setDark(next); localStorage.setItem("mealio-theme", next ? "dark" : "light"); }}>{dark ? "☀" : "☾"}</button><button type="button" disabled={busy} onClick={() => void logout()}>Log out</button></div></header>
+  return <main className={`${styles.app} ${mealEntry ? styles.entryApp : ""}`}>
+    <header className={`${styles.header} ${mealEntry ? styles.entryHeader : ""}`}><div>{!mealEntry && <span className={styles.eyebrow}>YOUR MEAL JOURNAL · {username}</span>}<h1>Mealio<span>.</span></h1></div><div className={styles.headerActions}><ThemeToggle />{!mealEntry && <button type="button" disabled={busy} onClick={() => void logout()}>Log out</button>}</div></header>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {!loaded && <p role="status">Loading meals…</p>}
+    {!loaded && !mealEntry && <p role="status">Loading meals…</p>}
 
     {view === "today" && loaded && <><section className={styles.hero}><div className={styles.heading}><div><span className={styles.eyebrow}>CALORIES BY MEAL</span><h2 aria-live="polite">{displayedTitle}</h2></div><span>{displayedDayKey} · {timezone}</span></div>
       {todayKey && <div className={styles.dayControls} role="group" aria-label="Choose day for calorie ring">
@@ -313,19 +354,49 @@ export default function MealDashboard({ username, timezone, onLogout }: { userna
       <button type="button" className={styles.secondary} onClick={() => changeView(detailsFrom)}>Back to {detailsFrom === "today" ? "Today" : "History"}</button>
     </section>}
 
-    {(view === "entry" || view === "review") && draft && <section className={styles.editor}><span className={styles.eyebrow}>{draft.id ? "EDIT MEAL" : "NEW MEAL"}</span><h2>{view === "review" ? "Review before saving" : "What did you eat?"}</h2><p>Describe foods and portions, then review estimates or enter nutrition manually. Candidates may be uncertain; your corrections are saved only when you confirm.</p>
-      {view === "entry" && <><label htmlFor={descriptionId}>Meal description</label><textarea id={descriptionId} rows={3} maxLength={500} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
-        <LocalEstimator description={draft.description} onEstimate={applyEstimate} existingSnapshots={groups.flatMap((group) => group.meals.flatMap((meal) => meal.itemSnapshots))}
-          beforeEstimate={() => !draft.items.some((item) => item.source === "manual" || item.portionEdited) || window.confirm("Replace your corrected item estimates? Saved meals are unchanged until you save.")} />
+    {mealEntry && draft && <section className={`${styles.editor} ${styles.mealEntry}`} aria-label="Add meal">
+      <h2>What did you eat?</h2>
+      {/* Keep the estimator mounted while reviewing so temporary interpretations survive. */}
+      <div hidden={view === "review"}>
+        <label className={styles.visuallyHidden} htmlFor={descriptionId}>Meal description</label>
+        <textarea ref={descriptionRef} id={descriptionId} className={styles.mealInput} rows={2} maxLength={500} disabled={estimating} placeholder="2 aloo parathas, curd and chai" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+        <LocalEstimator key={draft.key || draft.id} sessionKey={draft.key || draft.id!} description={draft.description} onEstimate={applyEstimate} beforeNavigate={journal.persist}
+          minimal hideAction={manualOpen} secondaryAction={canReview} onEstimating={setEstimating}
+          beforeEstimate={() => {
+            if (!draft.description.trim()) { descriptionRef.current?.focus(); return false; }
+            return !draft.items.some((item) => item.source === "manual" || item.portionEdited) || window.confirm("Replace your corrected item estimates? Saved meals are unchanged until you save.");
+          }} />
+      </div>
+      {view === "review" && <>
+        <div className={styles.mealDescriptionRow}><p className={styles.mealDescription}>{draft.description}</p><button type="button" className={styles.textButton} onClick={() => { setManualOpen(false); setView("entry"); }}>Edit meal</button></div>
+        <section className={styles.nutritionResult} aria-label="Meal nutrition summary" aria-live="polite">
+          <span className={styles.resultCaption}>{draft.provenance === "estimated" ? "Estimated nutrition" : "Your nutrition"}</span>
+          <div className={styles.resultCalories}><strong>{draft.kcal.trim() === "" ? "—" : formatCalories(draft.kcal)}</strong><span>kcal</span></div>
+          <dl className={styles.resultMacros}>{([["protein", "Protein"], ["carbs", "Carbs"], ["fat", "Fat"]] as const).map(([field, label]) => <div key={field}>
+            <dd>{draft[field].trim() === "" ? "—" : <>{formatCalories(draft[field])}<span> g</span></>}</dd><dt>{label}</dt>
+          </div>)}</dl>
+        </section>
       </>}
-      {!!draft.items.length && <div className={styles.items}><h3>Review estimates and adjust</h3>{draft.items.map((item, index) => <fieldset key={index} className={styles.item}><legend>Food {index + 1}</legend><SnapshotInfo item={item} />
+      <div className={view === "entry" ? styles.manualPrompt : styles.nutritionEdit}>
+        {view === "entry" && !manualOpen && !hasNutrition && !draft.items.length && <span className={styles.or}>or</span>}
+        <button type="button" className={styles.textButton} aria-expanded={manualOpen} aria-controls={nutritionId} onClick={() => setManualOpen((open) => !open)}>
+          {manualOpen ? "Hide nutrition" : hasNutrition || view === "review" ? "Edit nutrition" : "Enter nutrition manually"}
+        </button>
+      </div>
+      {manualOpen && <div id={nutritionId} className={`${styles.manualGrid} ${styles.reveal}`} role="group" aria-label="Manual meal nutrition">
+        {([["kcal", "Calories", "Meal calories"], ["protein", "Protein (g)", "Meal protein (g)"], ["carbs", "Carbs (g)", "Meal carbs (g)"], ["fat", "Fat (g)", "Meal fat (g) · optional"]] as const).map(([field, label, accessible]) => <label key={field}>{label}<input aria-label={accessible} type="number" inputMode="decimal" min="0" step="0.01" placeholder={field === "fat" ? "Optional" : "0"} value={draft[field]} onChange={(event) => setDraft({ ...draft, [field]: event.target.value, provenance: "corrected" })} /></label>)}
+      </div>}
+      {!!draft.items.length && (view === "review" || hasNutrition) && <details className={styles.foodDisclosure}><summary>Food details &amp; corrections</summary><div className={styles.items}>{draft.items.map((item, index) => <fieldset key={index} className={styles.item}><legend>Food {index + 1}</legend><SnapshotInfo item={item} />
         <label>Food name<input value={item.name} onChange={(event) => updateItem(index, { name: event.target.value })} /></label><div className={styles.fields}><label>Quantity<input type="number" min="0.01" step="any" value={item.quantity ?? ""} onChange={(event) => updateItem(index, { quantity: event.target.value ? Number(event.target.value) : null })} /></label><label>Unit<input value={item.unit ?? ""} onChange={(event) => updateItem(index, { unit: event.target.value || null })} /></label><label>Grams<input type="number" min="0.01" step="any" value={item.grams ?? ""} onChange={(event) => updateItem(index, { grams: event.target.value ? Number(event.target.value) : null })} /></label></div>
         <div className={styles.fields}>{(["kcal", "protein", "carbs", "fat"] as const).map((field) => <label key={field}>{field === "kcal" ? "Calories" : `${field} (g)`}<input type="number" min="0" step="0.01" value={item[field] ?? ""} onChange={(event) => updateItem(index, { [field]: event.target.value === "" ? null : Number(event.target.value) })} /></label>)}</div>
-      </fieldset>)}<button type="button" className={styles.secondary} onClick={useItemSums}>Use item sums for meal totals</button><p>Editing an item does not silently change the meal totals below.</p></div>}
-      <div className={styles.fields}>{(["kcal", "protein", "carbs", "fat"] as const).map((field) => <label key={field}>{field === "kcal" ? "Meal calories" : `Meal ${field} (g)${field === "fat" ? " · optional" : ""}`}<input type="number" min="0" step="0.01" value={draft[field]} onChange={(event) => setDraft({ ...draft, [field]: event.target.value, provenance: "corrected" })} /></label>)}</div>
-      <label>When eaten (device timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})<input type="datetime-local" value={draft.eatenAt} onChange={(event) => setDraft({ ...draft, eatenAt: event.target.value, timeChanged: true })} /></label><p>History is grouped in your account timezone: {timezone}.</p>
-      <div className={styles.actions}>{view === "entry" ? <button type="button" className={styles.primary} onClick={() => { if (validated()) { setError(""); setView("review"); } }}>Review meal</button> : <><button type="button" className={styles.secondary} onClick={() => setView("entry")}>Back to edit</button><button type="button" className={styles.primary} disabled={busy} onClick={() => void save()}>Save meal</button></>}</div>
+      </fieldset>)}<button type="button" className={styles.secondary} onClick={useItemSums}>Use item sums for meal totals</button><p>Editing an item does not silently change the meal totals.</p></div></details>}
+      <div className={styles.mealTime}>
+        <button type="button" className={styles.timeRow} aria-label={`Change meal time: ${mealEntryTime(draft.eatenAt)}`} aria-expanded={timeOpen} aria-controls={timeId} onClick={() => setTimeOpen((open) => !open)}><span>{mealEntryTime(draft.eatenAt)}</span><span aria-hidden="true">{timeOpen ? "⌄" : "›"}</span></button>
+        {timeOpen && <div className={styles.reveal} id={timeId}><label>Date &amp; time<input type="datetime-local" value={draft.eatenAt} onChange={(event) => setDraft({ ...draft, eatenAt: event.target.value, timeChanged: true })} /></label><button type="button" className={styles.textButton} onClick={() => setTimeOpen(false)}>Done</button></div>}
+      </div>
+      {(view === "review" || canReview) && <div className={styles.entrySave}>{view === "entry" ? <button type="button" className={styles.primary} onClick={() => { if (validated()) { setManualOpen(false); setTimeOpen(false); setError(""); setView("review"); } }}>Review meal</button>
+        : <button type="button" className={styles.primary} disabled={busy} onClick={() => void save()}>{busy ? "Saving…" : "Save meal"}</button>}</div>}
     </section>}
-    <nav className={styles.nav} aria-label="Main"><button type="button" aria-current={view === "today" ? "page" : undefined} onClick={() => { if (changeView("today")) { setSelectedDayKey(null); void load(); } }}>Today</button><button type="button" className={styles.add} onClick={startNew} aria-label="Add meal">+</button><button type="button" aria-current={view === "history" ? "page" : undefined} onClick={() => changeView("history")}>History</button></nav>
+    <nav className={styles.nav} aria-label="Main"><button type="button" disabled={!journal.ready} aria-current={view === "today" ? "page" : undefined} onClick={() => { if (changeView("today")) { setSelectedDayKey(null); void load(); } }}>Today</button><button type="button" disabled={!journal.ready} className={styles.add} onClick={startNew} aria-label="Add meal">+</button><button type="button" disabled={!journal.ready} aria-current={view === "history" ? "page" : undefined} onClick={() => changeView("history")}>History</button></nav>
   </main>;
 }

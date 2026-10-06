@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: { "/api/meals/export": ["./src/server/meals/fonts/*"] },
   async headers() {
     return [{ source: "/nutrition/sw.js", headers: [
-      { key: "Service-Worker-Allowed", value: "/nutrition" },
+      { key: "Service-Worker-Allowed", value: "/" },
       { key: "Cache-Control", value: "no-cache" },
     ] }];
   },

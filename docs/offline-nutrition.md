@@ -108,9 +108,13 @@ uses the current database. Meal history/login remain the existing online app.
 
 The usual meal editor estimates entirely locally. The journal still uses its
 existing authenticated online login/history/save/PDF routes. For offline startup,
-visit `/nutrition` once online and wait for its ready message. Its narrowly
-scoped service worker caches the public HTML/static code/catalog, never auth or
-meal APIs. `npm run build` generates a build-versioned worker in `postbuild`.
+visit `/nutrition` or `/foods` once online and wait for its ready message. A
+root-scoped service worker uses an explicit allowlist for the public estimator,
+library/editor/management and About documents, static code and catalog. It never
+caches the private journal, authentication or meal APIs. Public secondary screens
+use document navigation so the cached HTML works on offline reload and browser
+back without a Next.js server-component request. `npm run build` generates a
+build-versioned worker in `postbuild`.
 The standalone page needs no account connection; its private library remains on
 that browser. A fresh device must first obtain the application assets, as with
 any installed offline application.

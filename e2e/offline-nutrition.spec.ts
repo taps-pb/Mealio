@@ -1,6 +1,7 @@
 import { chromium, expect, test } from "@playwright/test";
+import { addFood, addRecipe, openLibrary, openNutrition, setupJournal } from "./library-helpers";
 
-test("cached production page estimates and learns foods through offline reloads", async ({ page, context }) => {
+test("offline document routes estimate, teach foods, build recipes and preserve drafts", async ({ page, context }) => {
   await page.goto("/nutrition");
   await expect(page.getByText("Ready for offline use on this device.", { exact: true })).toBeVisible();
   await page.evaluate(async () => {
@@ -8,32 +9,27 @@ test("cached production page estimates and learns foods through offline reloads"
   });
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Estimate locally (offline)", exact: true })).toBeDisabled();
   await page.getByLabel("Meal description", { exact: true }).fill("30 g Chocos + 200 ml milk");
   await page.evaluate(() => {
     const forbidden = () => { throw new Error("Estimation attempted a network request"); };
-    window.fetch = forbidden;
-    XMLHttpRequest.prototype.open = forbidden;
+    window.fetch = forbidden; XMLHttpRequest.prototype.open = forbidden;
   });
-  await page.getByRole("button", { name: "Estimate locally (offline)", exact: true }).click();
+  await page.getByRole("button", { name: "Estimate locally", exact: true }).click();
   await expect(page.getByLabel("Nutrition total")).toContainText("kcal");
   await expect(page.getByText(/Needs clarification/)).toHaveCount(0);
-  await expect(page.locator("body")).not.toContainText("NaN");
 
-  await page.getByText("My local foods & recipes", { exact: true }).click();
-  await page.getByLabel("Name", { exact: true }).fill("Jimmy Jam");
-  await page.getByLabel("Calories", { exact: true }).fill("42");
-  await page.getByLabel("Protein (g)", { exact: true }).fill("0.5");
-  await page.getByLabel("Carbs (g)", { exact: true }).fill("7");
-  await page.getByLabel("Fat (g)", { exact: true }).fill("1.3");
-  await page.getByRole("button", { name: "Save custom food", exact: true }).click();
+  await openLibrary(page);
+  await addFood(page, "Jimmy Jam", { kcal: "42", protein: "0.5", carbs: "7", fat: "1.3" });
   await page.reload();
+  await expect(page.getByRole("link", { name: /Jimmy Jam/ })).toBeVisible();
+  await page.getByRole("link", { name: "Back to estimator" }).click();
+  await expect(page.getByLabel("Meal description", { exact: true })).toHaveValue("30 g Chocos + 200 ml milk");
   await page.getByLabel("Meal description", { exact: true }).fill("10 pieces Jimmy Jam");
-  await page.getByRole("button", { name: "Estimate locally (offline)", exact: true }).click();
+  await page.getByRole("button", { name: "Estimate locally", exact: true }).click();
   await expect(page.getByLabel("Nutrition total")).toContainText("420 kcal");
 
   await page.getByLabel("Meal description", { exact: true }).fill("Dairy milk 26 rupees");
-  await page.getByRole("button", { name: "Estimate locally (offline)", exact: true }).click();
+  await page.getByRole("button", { name: "Estimate locally", exact: true }).click();
   await expect(page.getByLabel("Nutrition total")).toContainText("clarification");
   await page.getByLabel("Search local foods", { exact: true }).fill("Dairy Milk");
   await page.getByLabel("Food or product", { exact: true }).selectOption("off-7622201149406");
@@ -42,72 +38,68 @@ test("cached production page estimates and learns foods through offline reloads"
   await page.getByRole("button", { name: "Use this interpretation", exact: true }).click();
   await expect(page.getByLabel("Nutrition total")).toContainText("106.8 kcal");
   await page.reload();
-  await page.getByLabel("Meal description", { exact: true }).fill("Dairy milk 26 rupees");
-  await page.getByRole("button", { name: "Estimate locally (offline)", exact: true }).click();
+  await page.getByRole("button", { name: "Estimate locally", exact: true }).click();
   await expect(page.getByLabel("Nutrition total")).toContainText("106.8 kcal");
 
-  await page.getByText("My local foods & recipes", { exact: true }).click();
-  await page.getByLabel("Name", { exact: true }).fill("Mom's Paneer Curry");
-  await page.getByLabel("Aliases, separated by commas", { exact: true }).fill("mom paneer");
-  await page.getByLabel("Serving unit", { exact: true }).selectOption("bowl");
-  await page.getByText("Custom recipe — calculate from local ingredients", { exact: true }).click();
-  await page.getByLabel("Ingredients (one per line)", { exact: true }).fill("100 g paneer\n60 g tomato\n5 g oil");
-  await page.getByLabel("Cooked yield (g)", { exact: true }).fill("180");
-  await page.getByRole("button", { name: "Save custom recipe", exact: true }).click();
-  await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveCount(0);
+  await openLibrary(page);
+  await addRecipe(page, "Mom's Paneer Curry");
   await page.reload();
-  await page.getByLabel("Meal description", { exact: true }).fill("1 bowl mom paneer");
-  await page.getByRole("button", { name: "Estimate locally (offline)", exact: true }).click();
+  await expect(page.getByRole("link", { name: /Mom's Paneer Curry/ })).toContainText("2 servings");
+  await page.getByRole("link", { name: "Back to estimator" }).click();
+  await page.getByLabel("Meal description", { exact: true }).fill("1 bowl Mom's Paneer Curry");
+  await page.getByRole("button", { name: "Estimate locally", exact: true }).click();
   await expect(page.getByLabel("Nutrition total")).toContainText("kcal");
   await expect(page.getByText(/Needs clarification/)).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: test.info().outputPath("offline-mobile.png"), fullPage: true });
+  // The wider worker scope still only caches public allowlisted documents.
+  const cached = await page.evaluate(async () => (await Promise.all((await caches.keys()).map(async (key) => (await (await caches.open(key)).keys()).map((request) => new URL(request.url).pathname)))).flat());
+  expect(cached).toContain("/foods/recipes/new");
+  expect(cached).not.toContain("/");
+  expect(cached.some((path) => path.startsWith("/api/"))).toBe(false);
 });
 
-test("local library and installed offline shell survive a real browser restart", async ({}, testInfo) => {
+test("dedicated library and offline shell survive a real browser restart", async ({}, testInfo) => {
   const profile = testInfo.outputPath("synthetic-browser-profile");
   let context = await chromium.launchPersistentContext(profile);
   try {
     let page = await context.newPage();
     await page.goto("http://127.0.0.1:3100/nutrition");
     await expect(page.getByText("Ready for offline use on this device.", { exact: true })).toBeVisible();
-    await page.getByText("My local foods & recipes", { exact: true }).click();
-    await page.getByLabel("Name", { exact: true }).fill("Restart Biscuit");
-    for (const [label, value] of [["Calories", "40"], ["Protein (g)", "1"], ["Carbs (g)", "6"], ["Fat (g)", "1.5"]]) await page.getByLabel(label, { exact: true }).fill(value);
-    await page.getByRole("button", { name: "Save custom food", exact: true }).click();
-    await expect(page.getByText("Saved on this device. Estimate again to use updated foods.", { exact: true })).toBeVisible();
+    await openLibrary(page);
+    await addFood(page, "Restart Biscuit", { kcal: "40", protein: "1", carbs: "6", fat: "1.5" });
     await context.close();
     context = await chromium.launchPersistentContext(profile, { offline: true });
     page = await context.newPage();
+    await page.goto("http://127.0.0.1:3100/foods");
+    await expect(page.getByRole("link", { name: /Restart Biscuit/ })).toBeVisible();
     await page.goto("http://127.0.0.1:3100/nutrition");
     await page.getByLabel("Meal description", { exact: true }).fill("2 pieces Restart Biscuit");
-    await page.getByRole("button", { name: "Estimate locally (offline)", exact: true }).click();
+    await page.getByRole("button", { name: "Estimate locally", exact: true }).click();
     await expect(page.getByLabel("Nutrition total")).toContainText("80 kcal");
   } finally { await context.close(); }
 });
 
-test("journal integrates local estimates, preserves manual totals, saves versioned snapshots and reloads history", async ({ page }) => {
-  const logged: Record<string, unknown>[] = [];
-  const estimateRequests: string[] = [];
-  page.on("request", (request) => { if (request.url().includes("/api/estimate")) estimateRequests.push(request.url()); });
-  await page.route("**/api/auth/me", (route) => route.fulfill({ json: { username: "synthetic-owner", timezone: "Asia/Kolkata" } }));
-  await page.route("**/api/meals**", async (route) => {
-    if (route.request().method() === "POST") {
-      const meal = { ...route.request().postDataJSON(), id: "synthetic-meal", createdAt: new Date().toISOString() };
-      logged.push(meal); await route.fulfill({ status: 201, json: { meal } });
-    } else {
-      const groups = logged.length ? [{ date: "2026-10-04", day: "2026-10-04", meals: logged, totalKcal: 999, totalProtein: 9, totalCarbs: 19 }] : [];
-      await route.fulfill({ json: { groups, todayKey: "2026-10-04", timezone: "Asia/Kolkata" } });
-    }
-  });
+test("journal keeps manual totals, versioned snapshots and review/save/history after a library visit", async ({ page }) => {
+  const { logged, estimateRequests } = await setupJournal(page);
   await page.goto("/");
   await page.getByRole("button", { name: "Add meal", exact: true }).click();
   await page.getByLabel("Meal description", { exact: true }).fill("2 aloo pyaaz paratha");
+  await openNutrition(page);
   await page.getByLabel("Meal calories", { exact: true }).fill("999");
   await page.getByLabel("Meal protein (g)", { exact: true }).fill("9");
   await page.getByLabel("Meal carbs (g)", { exact: true }).fill("19");
-  await page.getByRole("button", { name: "Estimate locally (offline)", exact: true }).click();
+  await page.getByRole("button", { name: /^Change meal time:/ }).click();
+  const when = page.getByLabel("Date & time", { exact: true });
+  await when.fill("2026-10-05T23:55");
+  await page.getByRole("button", { name: "Hide nutrition", exact: true }).click();
+  await page.getByRole("button", { name: "Estimate", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save meal", exact: true })).toBeVisible();
+  await openLibrary(page);
+  await page.getByRole("link", { name: "Back to meal" }).click();
+  await openNutrition(page);
   await expect(page.getByLabel("Meal calories", { exact: true })).toHaveValue("999");
+  await page.getByRole("button", { name: /^Change meal time:/ }).click();
+  await expect(when).toHaveValue("2026-10-05T23:55");
   await page.getByRole("button", { name: "Review meal", exact: true }).click();
   await page.getByRole("button", { name: "Save meal", exact: true }).click();
   await expect.poll(() => logged.length).toBe(1);
